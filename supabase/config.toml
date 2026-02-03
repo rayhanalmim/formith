@@ -1,0 +1,55 @@
+project_id = "ijkgxnhxtweovtrhivxx"
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.send-ban-notification]
+verify_jwt = false
+
+[functions.auth-email-hook]
+verify_jwt = false
+
+[functions.send-reset-email]
+verify_jwt = false
+
+[functions.verify-reset-token]
+verify_jwt = false
+
+[functions.send-verification-email]
+verify_jwt = false
+
+[functions.verify-email-token]
+verify_jwt = false
+
+[functions.upload-to-spaces]
+verify_jwt = false
+
+[functions.migrate-to-spaces]
+verify_jwt = false
+
+[functions.storage-stats]
+verify_jwt = false
+
+[functions.delete-from-spaces]
+verify_jwt = false
+
+[functions.remove-background]
+verify_jwt = false
+
+[functions.migrate-to-postgres]
+verify_jwt = false
+
+[functions.do-query]
+verify_jwt = false
+
+[functions.sync-user-to-do]
+verify_jwt = false
+
+[functions.encrypt-media]
+verify_jwt = false
+
+[functions.sync-profile-counts]
+verify_jwt = false
