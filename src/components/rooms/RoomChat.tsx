@@ -10,6 +10,7 @@ import {
   useSendRoomMessage,
   useRealtimeRoomMessages 
 } from '@/hooks/useRooms';
+import { LinkPreview } from '@/components/shared/LinkPreview';
 import { useRoomTyping } from '@/hooks/useRoomTyping';
 import { useRoomReactions } from '@/hooks/useMessageReactions';
 import { useRoomReadReceipts, useMarkRoomMessagesAsRead } from '@/hooks/useRoomReadReceipts';
@@ -500,6 +501,13 @@ function MessageBubble({
           {/* Text Content */}
           {message.content && !message.content.startsWith('📷') && !message.content.startsWith('📎') && (
             <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          )}
+          
+          {/* Link Previews */}
+          {message.link_previews && (
+            <div className="mt-2">
+              <LinkPreview previews={typeof message.link_previews === 'string' ? JSON.parse(message.link_previews) : message.link_previews} />
+            </div>
           )}
         </div>
 

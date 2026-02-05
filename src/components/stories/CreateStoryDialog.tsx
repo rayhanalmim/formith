@@ -559,7 +559,7 @@ export function CreateStoryDialog({ open, onOpenChange }: CreateStoryDialogProps
                     <video
                       ref={videoRef}
                       src={mediaPreview}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       style={{ filter: selectedFilter.css || undefined }}
                       autoPlay
                       loop
@@ -571,7 +571,7 @@ export function CreateStoryDialog({ open, onOpenChange }: CreateStoryDialogProps
                     <img
                       src={mediaPreview}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       style={{ filter: selectedFilter.css || undefined }}
                     />
                   )}

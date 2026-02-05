@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -47,6 +48,7 @@ import { LazyImage, LazyAvatar } from '@/components/ui/lazy-image';
 import { PostImageViewer } from '@/components/ui/post-image-viewer';
 import { SharePostToDMDialog } from '@/components/messages/SharePostToDMDialog';
 import { PollDisplay } from '@/components/polls/PollDisplay';
+import { LinkPreview } from '@/components/shared/LinkPreview';
 
 interface PostCardProps {
   post: Post;
@@ -458,6 +460,11 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
           <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap">
             <MentionText content={isRepost && originalPost ? originalPost.content : post.content} />
           </div>
+        )}
+
+        {/* Link Previews */}
+        {post.link_previews && (
+          <LinkPreview previews={typeof post.link_previews === 'string' ? JSON.parse(post.link_previews) : post.link_previews} />
         )}
 
         {/* Poll Display - show original post's poll for reposts */}

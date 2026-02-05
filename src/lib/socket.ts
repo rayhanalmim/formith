@@ -268,6 +268,12 @@ class SocketClient {
     return () => this.off('user:status-change', callback);
   }
 
+  // Room online count listener
+  onRoomOnlineCount(callback: (event: { roomId: string; count: number }) => void): () => void {
+    this.on('room:online-count', callback);
+    return () => this.off('room:online-count', callback);
+  }
+
   // Event listeners with tracking for reconnection
   on<T>(event: string, callback: (data: T) => void): void {
     if (!this.listeners.has(event)) {

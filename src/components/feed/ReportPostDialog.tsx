@@ -26,7 +26,7 @@ interface ReportPostDialogProps {
 
 const REPORT_REASONS = [
   { value: 'spam', labelEn: 'Spam', labelAr: 'محتوى مزعج' },
-  { value: 'harassment', labelEn: 'Harassment or Bullying', labelAr: 'تحرش أو تنمر' },
+  { value: 'harassment', labelEn: 'Harassment ', labelAr: 'تحرش أو تنمر' },
   { value: 'hate_speech', labelEn: 'Hate Speech', labelAr: 'خطاب كراهية' },
   { value: 'violence', labelEn: 'Violence or Threats', labelAr: 'عنف أو تهديدات' },
   { value: 'misinformation', labelEn: 'Misinformation', labelAr: 'معلومات مضللة' },
@@ -114,24 +114,24 @@ export function ReportPostDialog({ open, onOpenChange, postId }: ReportPostDialo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="glass-card sm:max-w-md">
+      <DialogContent className="glass-card max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Flag className="h-5 w-5 text-destructive" />
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Flag className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
             {language === 'ar' ? 'الإبلاغ عن المنشور' : 'Report Post'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {language === 'ar' 
               ? 'ساعدنا في الحفاظ على مجتمع آمن ومحترم' 
               : 'Help us keep the community safe and respectful'}
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-2">
+        <div className="space-y-3 sm:space-y-4 py-2">
           {/* Warning Notice */}
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
-            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-            <p className="text-xs text-muted-foreground">
+          <div className="flex items-start gap-2 p-2 sm:p-3 rounded-lg bg-warning/10 border border-warning/20">
+            <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-warning shrink-0 mt-0.5" />
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
               {language === 'ar' 
                 ? 'البلاغات الكاذبة قد تؤدي إلى إجراءات ضد حسابك.' 
                 : 'False reports may result in action against your account.'}
@@ -140,23 +140,23 @@ export function ReportPostDialog({ open, onOpenChange, postId }: ReportPostDialo
 
           {/* Reason Selection */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">
+            <Label className="text-xs sm:text-sm font-medium">
               {language === 'ar' ? 'سبب البلاغ' : 'Reason for Report'}
             </Label>
             <RadioGroup 
               value={selectedReason} 
               onValueChange={setSelectedReason}
-              className="grid gap-2"
+              className="grid grid-cols-2 gap-1.5 sm:gap-2"
             >
               {REPORT_REASONS.map((reason) => (
                 <div
                   key={reason.value}
-                  className="flex items-center space-x-2 rtl:space-x-reverse p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="flex items-center space-x-2 rtl:space-x-reverse p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                 >
-                  <RadioGroupItem value={reason.value} id={reason.value} />
+                  <RadioGroupItem value={reason.value} id={reason.value} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <Label 
                     htmlFor={reason.value} 
-                    className="flex-1 cursor-pointer text-sm"
+                    className="flex-1 cursor-pointer text-xs sm:text-sm"
                   >
                     {language === 'ar' ? reason.labelAr : reason.labelEn}
                   </Label>
@@ -167,7 +167,7 @@ export function ReportPostDialog({ open, onOpenChange, postId }: ReportPostDialo
 
           {/* Additional Details */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">
+            <Label className="text-xs sm:text-sm font-medium">
               {language === 'ar' ? 'تفاصيل إضافية (اختياري)' : 'Additional Details (optional)'}
             </Label>
             <Textarea
@@ -177,26 +177,27 @@ export function ReportPostDialog({ open, onOpenChange, postId }: ReportPostDialo
                 ? 'أضف أي معلومات إضافية تساعدنا في مراجعة البلاغ...' 
                 : 'Add any additional information to help us review...'}
               rows={3}
-              className="resize-none"
+              className="resize-none text-xs sm:text-sm"
               dir={language === 'ar' ? 'rtl' : 'ltr'}
               maxLength={500}
             />
-            <p className="text-xs text-muted-foreground text-end">
+            <p className="text-[10px] sm:text-xs text-muted-foreground text-end">
               {additionalDetails.length}/500
             </p>
           </div>
         </div>
         
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={handleClose}>
+        <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+          <Button variant="outline" onClick={handleClose} className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
             {language === 'ar' ? 'إلغاء' : 'Cancel'}
           </Button>
           <Button 
             onClick={handleSubmit} 
             disabled={isSubmitting || !selectedReason}
             variant="destructive"
+            className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10"
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 me-2 animate-spin" />}
             {language === 'ar' ? 'إرسال البلاغ' : 'Submit Report'}
           </Button>
         </DialogFooter>

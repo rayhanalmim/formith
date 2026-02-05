@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +11,7 @@ import {
   encryptFile,
   createEncryptedPayload,
 } from '@/lib/encryption';
+import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
 interface UseEncryptedSendMessageOptions {
@@ -62,6 +64,18 @@ export function useEncryptedSendMessage({ conversation, onSuccess }: UseEncrypte
     setEncryptionProgress(0);
 
     try {
+      // Fetch link previews BEFORE encryption (so server can extract URLs from plain text)
+      let linkPreviews: any[] = [];
+      try {
+        const previewsResponse = await api.fetchLinkPreviews(content);
+        if (previewsResponse.success && previewsResponse.data) {
+          linkPreviews = previewsResponse.data;
+        }
+      } catch (err) {
+        console.log('[useEncryptedSendMessage] Failed to fetch link previews:', err);
+      }
+      setEncryptionProgress(5);
+
       // Get or derive the conversation key
       let key = keyCache.get(conversation.id);
       if (!key) {
@@ -159,7 +173,7 @@ export function useEncryptedSendMessage({ conversation, onSuccess }: UseEncrypte
         encryptedReplyContent = createEncryptedPayload(encryptedReply, false);
       }
 
-      // Send the encrypted message with media URL
+      // Send the encrypted message with media URL and link previews
       await sendMessage.mutateAsync({
         conversationId: conversation.id,
         content: encryptedContent,
@@ -172,6 +186,7 @@ export function useEncryptedSendMessage({ conversation, onSuccess }: UseEncrypte
         replySenderDisplayName,
         isEncrypted: true,
         optimisticId,
+        linkPreviews,
       });
 
       setEncryptionProgress(100);

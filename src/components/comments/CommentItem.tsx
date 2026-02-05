@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import type { CommentProfile } from '@/hooks/useComments';
+import { LinkPreview } from '@/components/shared/LinkPreview';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -303,11 +304,20 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
                 </div>
               </div>
             ) : (
-              <div 
-                className="text-sm whitespace-pre-wrap"
-                onClick={handleContentClick}
-              >
-                <MentionText content={comment.content} />
+              <div>
+                <div 
+                  className="text-sm whitespace-pre-wrap"
+                  onClick={handleContentClick}
+                >
+                  <MentionText content={comment.content} />
+                </div>
+                
+                {/* Link Previews */}
+                {comment.link_previews && (
+                  <div className="mt-2">
+                    <LinkPreview previews={typeof comment.link_previews === 'string' ? JSON.parse(comment.link_previews) : comment.link_previews} />
+                  </div>
+                )}
               </div>
             )}
           </div>

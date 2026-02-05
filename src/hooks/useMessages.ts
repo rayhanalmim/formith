@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,6 +44,7 @@ export interface DirectMessage {
   media_type?: string | null;
   is_deleted?: boolean | null;
   edited_at?: string | null;
+  link_previews?: string | null;
   // Reply fields
   reply_to_id?: string | null;
   reply_content?: string | null;
@@ -295,6 +297,7 @@ export function useSendMessage() {
       replySenderDisplayName,
       isEncrypted,
       optimisticId,
+      linkPreviews,
     }: { 
       conversationId: string; 
       content: string;
@@ -307,6 +310,7 @@ export function useSendMessage() {
       replySenderDisplayName?: string;
       isEncrypted?: boolean;
       optimisticId?: string;
+      linkPreviews?: any[];
     }) => {
       if (!user) throw new Error('Not authenticated');
 
@@ -321,6 +325,7 @@ export function useSendMessage() {
         reply_sender_id: replySenderId,
         reply_sender_username: replySenderUsername,
         reply_sender_display_name: replySenderDisplayName,
+        link_previews: linkPreviews,
       });
 
       return response.data;

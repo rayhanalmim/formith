@@ -101,6 +101,7 @@ CREATE TABLE public.comments (
     content text NOT NULL,
     likes_count integer DEFAULT 0,
     is_hidden boolean DEFAULT false,
+    link_previews jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -163,7 +164,8 @@ CREATE TABLE public.direct_messages (
     reply_sender_id uuid,
     reply_sender_username text,
     reply_sender_display_name text,
-    edited_at timestamp with time zone
+    edited_at timestamp with time zone,
+    link_previews jsonb
 );
 
 
@@ -319,7 +321,8 @@ CREATE TABLE public.messages (
     media_type text,
     is_pinned boolean DEFAULT false,
     pinned_at timestamp with time zone,
-    pinned_by text
+    pinned_by text,
+    link_previews jsonb
 );
 
 
@@ -455,6 +458,7 @@ CREATE TABLE public.posts (
     quote_content text,
     location text,
     feeling text,
+    link_previews jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );

@@ -56,6 +56,7 @@ import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/lib/default-images';
 import { toast } from '@/hooks/use-toast';
 import { SharedPostPreview, isSharedPostMessage } from './SharedPostPreview';
+import { LinkPreview } from '@/components/shared/LinkPreview';
 
 interface ChatViewProps {
   conversation: Conversation | null;
@@ -923,11 +924,19 @@ function MessageBubble({
       );
     }
     return (
-      <p className="text-sm whitespace-pre-wrap break-words">
-        {decryptedContent}
-      </p>
+      <div>
+        <p className="text-sm whitespace-pre-wrap break-words">
+          {decryptedContent}
+        </p>
+        {/* Link Previews */}
+        {message.link_previews && (
+          <div className="mt-2">
+            <LinkPreview previews={typeof message.link_previews === 'string' ? JSON.parse(message.link_previews) : message.link_previews} />
+          </div>
+        )}
+      </div>
     );
-  }, [isOwn, onCloseSidebar, language]);
+  }, [isOwn, onCloseSidebar, message.link_previews]);
   
   const hasMedia = !!message.media_url;
   const isImage = message.media_type === 'image';

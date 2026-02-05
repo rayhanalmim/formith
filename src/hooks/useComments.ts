@@ -22,6 +22,7 @@ export interface Comment {
   is_hidden: boolean | null;
   created_at: string;
   updated_at: string;
+  link_previews?: string | null;
   profile: CommentProfile | null;
   replies: Comment[];
   user_liked: boolean;

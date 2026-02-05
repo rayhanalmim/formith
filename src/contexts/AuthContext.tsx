@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Subscribe to user status changes via Socket.io for ban detection
-    const unsubscribe = socketClient.onUserStatusChange((event) => {
+    const unsubscribeStatus = socketClient.onUserStatusChange((event) => {
       if (event.userId === user.id && event.status === 'banned') {
         // Refresh profile to get ban reason
         api.getProfile(user.id).then((response) => {
@@ -90,8 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Subscribe to direct ban event from admin
+    const handleBan = (event: { userId: string; banReason: string }) => {
+      console.log('[AuthContext] Received user:banned event:', event);
+      if (event.userId === user.id) {
+        console.log('[AuthContext] User ID matches, triggering ban detection');
+        handleBanDetected(event.banReason);
+      } else {
+        console.log('[AuthContext] User ID does not match current user');
+      }
+    };
+    console.log('[AuthContext] Subscribing to user:banned event for user:', user.id);
+    socketClient.on<{ userId: string; banReason: string }>('user:banned', handleBan);
+
     return () => {
-      unsubscribe();
+      unsubscribeStatus();
+      socketClient.off<{ userId: string; banReason: string }>('user:banned', handleBan);
     };
   }, [user, profile, handleBanDetected]);
 

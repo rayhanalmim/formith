@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { socketClient } from '@/lib/socket';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsAdmin } from '@/hooks/useAdmin';
@@ -34,6 +35,7 @@ export default function RoomDetailPage() {
   const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin();
   const navigate = useNavigate();
   const hasAutoJoined = useRef(false);
+  const [onlineCount, setOnlineCount] = useState<number>(0);
   
   const { data: room, isLoading: loadingRoom } = useRoomBySlug(roomSlug || '');
   const { data: members } = useRoomMembers(room?.id || '');
@@ -60,6 +62,39 @@ export default function RoomDetailPage() {
   // Reset ref when room changes
   useEffect(() => {
     hasAutoJoined.current = false;
+  }, [room?.id]);
+
+  // Listen for real-time online count updates
+  useEffect(() => {
+    if (!room?.id) return;
+
+    // Fetch initial online count
+    const fetchOnlineCount = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rooms/${room.id}/online-count`);
+        const data = await response.json();
+        if (data.success) {
+          setOnlineCount(data.data.count);
+        }
+      } catch (error) {
+        console.error('Error fetching online count:', error);
+      }
+    };
+    fetchOnlineCount();
+
+    // Listen for socket updates
+    const handleOnlineCountUpdate = (data: { roomId: string; count: number }) => {
+      if (data.roomId === room.id) {
+        setOnlineCount(data.count);
+      }
+    };
+
+    const unsubscribe = socketClient.onRoomOnlineCount(handleOnlineCountUpdate);
+
+    return () => {
+      // Cleanup listener
+      unsubscribe();
+    };
   }, [room?.id]);
   
   const isRoomCreator = room?.created_by === user?.id;
@@ -149,12 +184,12 @@ export default function RoomDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Members count */}
+              {/* Online count */}
               <div className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 bg-muted/50 rounded-full">
                 <Users className="h-4 w-4" />
-                <span className="font-medium">{members?.length || room.members_count}</span>
+                <span className="font-medium">{onlineCount}</span>
                 <span className="hidden md:inline text-xs">
-                  {language === 'ar' ? 'عضو' : 'online'}
+                  {language === 'ar' ? 'متصل' : 'online'}
                 </span>
               </div>
 

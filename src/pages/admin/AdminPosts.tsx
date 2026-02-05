@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAdminPosts, useModeratePost, useDeletePost, useBulkDeletePosts, useBulkModeratePosts } from '@/hooks/useAdmin';
@@ -58,7 +59,9 @@ import {
   Unlock, 
   Trash2,
   Eye,
-  ChevronDown
+  ChevronDown,
+  Repeat2,
+  Quote
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
@@ -364,6 +367,18 @@ export default function AdminPosts() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
+                        {(post as any).is_quote_repost && (
+                          <Badge variant="outline" className="text-primary border-primary">
+                            <Quote className="h-3 w-3 me-1" />
+                            {language === 'ar' ? 'اقتباس' : 'Quote'}
+                          </Badge>
+                        )}
+                        {(post as any).is_repost && !(post as any).is_quote_repost && (
+                          <Badge variant="outline" className="text-primary border-primary">
+                            <Repeat2 className="h-3 w-3 me-1" />
+                            {language === 'ar' ? 'إعادة نشر' : 'Repost'}
+                          </Badge>
+                        )}
                         {!post.is_approved && (
                           <Badge variant="outline" className="text-warning border-warning">
                             {language === 'ar' ? 'معلق' : 'Pending'}
@@ -384,7 +399,7 @@ export default function AdminPosts() {
                             {language === 'ar' ? 'مقفل' : 'Locked'}
                           </Badge>
                         )}
-                        {post.is_approved && !post.is_hidden && !post.is_pinned && !post.is_locked && (
+                        {post.is_approved && !post.is_hidden && !post.is_pinned && !post.is_locked && !(post as any).is_repost && (
                           <Badge variant="outline" className="text-success border-success">
                             {language === 'ar' ? 'نشط' : 'Active'}
                           </Badge>

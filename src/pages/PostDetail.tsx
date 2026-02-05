@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ReportPostDialog } from '@/components/feed/ReportPostDialog';
 import { MentionText } from '@/components/feed/MentionText';
+import { LinkPreview } from '@/components/shared/LinkPreview';
 import { 
   ArrowLeft, 
   BadgeCheck, 
@@ -346,6 +347,13 @@ export default function PostDetail() {
         <div className="text-base leading-relaxed mb-4 whitespace-pre-wrap">
           <MentionText content={post.content} />
         </div>
+
+        {/* Link Previews */}
+        {post.link_previews && (
+          <div className="mb-4">
+            <LinkPreview previews={typeof post.link_previews === 'string' ? JSON.parse(post.link_previews) : post.link_previews} />
+          </div>
+        )}
 
         {/* Images - Use displayMedia which handles repost fallback */}
         {displayMedia && displayMedia.length > 0 && (

@@ -889,10 +889,18 @@ class ApiClient {
     reply_sender_id?: string;
     reply_sender_username?: string;
     reply_sender_display_name?: string;
+    link_previews?: any[];
   }): Promise<ApiResponse<any>> {
     return this.request<ApiResponse<any>>('/messages/send', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async fetchLinkPreviews(content: string): Promise<ApiResponse<any[]>> {
+    return this.request<ApiResponse<any[]>>('/messages/link-previews', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
     });
   }
 
@@ -1659,6 +1667,7 @@ export interface RoomMessage {
   is_deleted: boolean;
   is_pinned: boolean;
   created_at: string;
+  link_previews?: string | null;
   profile?: {
     username: string | null;
     display_name: string | null;
@@ -1727,6 +1736,7 @@ export interface Post {
   quote_content: string | null;
   location: string | null;
   feeling: string | null;
+  link_previews?: string | null;
   profile?: PostProfile | null;
   category?: PostCategory | null;
   media?: PostMedia[];

@@ -809,7 +809,7 @@ export function StoryViewer({
         </div>
         
         {/* Story Content */}
-        <div className="w-full h-full flex items-center justify-center relative">
+        <div className="w-full h-full flex items-center justify-center relative bg-black">
           {/* Media */}
           {currentStory.media_type === 'video' ? (
             <video
@@ -913,13 +913,14 @@ export function StoryViewer({
             </div>
           ))}
           
-          {/* Tappable Reaction Emoji - Fixed position at bottom right of story area */}
+          {/* Tappable Reaction Emoji - Positioned based on upload placement */}
           {currentStory.reaction_emoji && (
             <div
               className="absolute z-30 cursor-pointer transition-transform hover:scale-110 active:scale-95"
               style={{
-                right: '20px',
-                bottom: '100px',
+                left: currentStory.reaction_emoji.position ? `${currentStory.reaction_emoji.position.x}%` : '80%',
+                top: currentStory.reaction_emoji.position ? `${currentStory.reaction_emoji.position.y}%` : '70%',
+                transform: 'translate(-50%, -50%)',
               }}
               onClick={(e) => {
                 e.stopPropagation();
