@@ -19,6 +19,7 @@ interface SwipeableNotificationItemProps {
 const iconMap = {
   like: Heart,
   comment: MessageCircle,
+  comment_reply: Reply,
   comment_like: ThumbsUp,
   reply: Reply,
   follow: UserPlus,
@@ -33,13 +34,14 @@ const iconMap = {
 const iconColorMap = {
   like: 'text-destructive bg-destructive/10',
   comment: 'text-info bg-info/10',
+  comment_reply: 'text-emerald-500 bg-emerald-500/10',
   comment_like: 'text-amber-500 bg-amber-500/10',
   reply: 'text-emerald-500 bg-emerald-500/10',
   follow: 'text-primary bg-primary/10',
   mention_post: 'text-violet-500 bg-violet-500/10',
   mention_comment: 'text-violet-500 bg-violet-500/10',
-  repost: 'text-green-500 bg-green-500/10',
-  poll_vote: 'text-cyan-500 bg-cyan-500/10',
+  repost: 'text-blue-500 bg-blue-500/10',
+  poll_vote: 'text-purple-500 bg-purple-500/10',
   report: 'text-orange-500 bg-orange-500/10',
   room_moderator: 'text-cyan-500 bg-cyan-500/10',
 };
@@ -216,6 +218,7 @@ export function SwipeableNotificationItem({
     switch (latestNotification.type) {
       case 'like':
       case 'comment':
+      case 'comment_reply':
       case 'comment_like':
       case 'reply':
       case 'mention_post':

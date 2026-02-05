@@ -10,8 +10,11 @@ export interface Notification {
   user_id: string;
   type: string;
   title: string;
+  title_ar?: string;
   message: string;
+  message_ar?: string;
   link: string | null;
+  data?: string | Record<string, string>;
   is_read: boolean;
   created_at: string;
 }

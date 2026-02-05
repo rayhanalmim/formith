@@ -251,6 +251,12 @@ class SocketClient {
     return () => this.off('stories:update', callback);
   }
 
+  // Story emoji button reaction (real-time for story owner)
+  onStoryEmojiReaction(callback: (event: { storyId: string; userId: string; emoji: string; isNew: boolean }) => void): () => void {
+    this.on('story:emoji-reaction', callback);
+    return () => this.off('story:emoji-reaction', callback);
+  }
+
   // Presence event listeners
   onUserOnline(callback: (event: { userId: string }) => void): () => void {
     this.on('user:online', callback);

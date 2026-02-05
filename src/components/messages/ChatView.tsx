@@ -123,6 +123,40 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
     el.scrollTop = el.scrollHeight;
   }, []);
 
+  const lastLoadMoreRef = useRef<number>(0);
+  const loadMoreCooldownRef = useRef<boolean>(false);
+  const loadMoreScrollPositionRef = useRef<number>(0);
+  const disableAutoScrollRef = useRef<boolean>(false);
+
+  // Force scroll for shared post loads
+  const forceScrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || isLoadingMoreRef.current) return;
+    
+    // NUCLEAR OPTION: Disable ALL auto-scroll during Load More cooldown
+    if (disableAutoScrollRef.current) return;
+    
+    // Respect the same conditions as other scroll functions
+    if (userScrolledUpRef.current || initialLoadRef.current) return;
+    
+    // Prevent scrolling during Load More cooldown period
+    if (loadMoreCooldownRef.current) return;
+    
+    // Multiple attempts with delays to ensure DOM is fully updated
+    const scroll = () => el.scrollTop = el.scrollHeight;
+    
+    // Immediate scroll
+    scroll();
+    
+    // Scroll after DOM updates
+    requestAnimationFrame(scroll);
+    
+    // Scroll after a short delay
+    setTimeout(scroll, 50);
+    setTimeout(scroll, 100);
+    setTimeout(scroll, 200);
+  }, []);
+
   const initialLoadRef = useRef(true);
   const ensureBottomTimerRef = useRef<number | null>(null);
   const ensureBottomUntilRef = useRef<number>(0);
@@ -199,6 +233,18 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
       const threshold = 24; // px tolerance for near-bottom
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
       userScrolledUpRef.current = !atBottom;
+
+      // During Load More cooldown, force scroll position back if it changed
+      if (loadMoreCooldownRef.current && loadMoreScrollPositionRef.current > 0) {
+        const currentScroll = el.scrollTop;
+        const targetScroll = loadMoreScrollPositionRef.current;
+        const tolerance = 10; // Allow small variations
+        
+        if (Math.abs(currentScroll - targetScroll) > tolerance) {
+          // Force scroll position back to preserved position
+          el.scrollTop = targetScroll;
+        }
+      }
     };
     el.addEventListener('scroll', onScroll);
     return () => el.removeEventListener('scroll', onScroll);
@@ -218,7 +264,7 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
         userScrolledUpRef.current = false;
         initialLoadRef.current = true;
       }
-      if (!userScrolledUpRef.current && !isLoadingMoreRef.current) {
+      if (!userScrolledUpRef.current && !isLoadingMoreRef.current && !loadMoreCooldownRef.current) {
         scrollToBottom();
       }
     });
@@ -246,7 +292,7 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
     const el = scrollRef.current;
     if (!el) return;
     const mo = new MutationObserver(() => {
-      if (!userScrolledUpRef.current && !isLoadingMoreRef.current && !initialLoadRef.current) {
+      if (!userScrolledUpRef.current && !isLoadingMoreRef.current && !initialLoadRef.current && !loadMoreCooldownRef.current) {
         scrollToBottom();
       }
     });
@@ -628,18 +674,46 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
                     // Preserve scroll position: capture before
                     const prevHeight = el.scrollHeight;
                     const prevTop = el.scrollTop;
+                    lastLoadMoreRef.current = Date.now();
+                    loadMoreCooldownRef.current = true;
                     isLoadingMoreRef.current = true;
                     await loadMore();
-                    // After DOM updates, compensate height delta (double RAF for safety)
-                    requestAnimationFrame(() => {
-                      requestAnimationFrame(() => {
-                        const nextHeight = el.scrollHeight;
-                        const delta = nextHeight - prevHeight;
-                        el.scrollTop = prevTop + delta;
-                        // Allow ResizeObserver to resume pinning behavior
+                    // After DOM updates, compensate height delta (use setTimeout for reliability)
+                    setTimeout(() => {
+                      const nextHeight = el.scrollHeight;
+                      const delta = nextHeight - prevHeight;
+                      const newScrollTop = prevTop + delta;
+                      el.scrollTop = newScrollTop;
+                      loadMoreScrollPositionRef.current = newScrollTop; // Store preserved position
+                      // Delay setting isLoadingMore to false to prevent immediate auto-scroll
+                      setTimeout(() => {
                         isLoadingMoreRef.current = false;
-                      });
-                    });
+                        // Keep cooldown active for longer to allow shared posts to load
+                        setTimeout(() => {
+                          loadMoreCooldownRef.current = false;
+                          loadMoreScrollPositionRef.current = 0; // Clear preserved position
+                        }, 10000); // 10 seconds cooldown
+                      }, 100);
+                    }, 50);
+                    // Additional scroll position reinforcements
+                    setTimeout(() => {
+                      const nextHeight2 = el.scrollHeight;
+                      const delta2 = nextHeight2 - prevHeight;
+                      const newScrollTop2 = prevTop + delta2;
+                      el.scrollTop = newScrollTop2;
+                    }, 100);
+                    setTimeout(() => {
+                      const nextHeight3 = el.scrollHeight;
+                      const delta3 = nextHeight3 - prevHeight;
+                      const newScrollTop3 = prevTop + delta3;
+                      el.scrollTop = newScrollTop3;
+                    }, 200);
+                    setTimeout(() => {
+                      const nextHeight4 = el.scrollHeight;
+                      const delta4 = nextHeight4 - prevHeight;
+                      const newScrollTop4 = prevTop + delta4;
+                      el.scrollTop = newScrollTop4;
+                    }, 500);
                   }}
                   className="text-xs"
                 >
@@ -683,6 +757,7 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
                       isSelectMode={isSelectMode}
                       isSelected={selectedMessages.has(msg.id)}
                       onToggleSelect={() => toggleMessageSelection(msg.id)}
+                      onMediaLoad={forceScrollToBottom}
                     />
                   ))}
                 </div>
@@ -869,6 +944,7 @@ interface MessageBubbleProps {
   isSelected: boolean;
   onToggleSelect: () => void;
   onCloseSidebar?: () => void;
+  onMediaLoad?: () => void;
 }
 
 function MessageBubble({ 
@@ -879,6 +955,7 @@ function MessageBubble({
   onDelete, 
   onHideForMe,
   onEdit,
+  onMediaLoad,
   onForward, 
   onReply,
   formatTime,
@@ -900,16 +977,6 @@ function MessageBubble({
     }
     const { isShared, postUrl, textContent } = isSharedPostMessage(decryptedContent);
     
-    // Debug logging (remove in production)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('DM Message Debug:', {
-        decryptedContent,
-        isShared,
-        postUrl,
-        textContent
-      });
-    }
-    
     if (isShared && postUrl) {
       return (
         <div>
@@ -919,7 +986,7 @@ function MessageBubble({
           )}>
             {textContent}
           </p>
-          <SharedPostPreview postUrl={postUrl} isOwn={isOwn} onCloseChatSidebar={onCloseSidebar} />
+          <SharedPostPreview postUrl={postUrl} isOwn={isOwn} onCloseChatSidebar={onCloseSidebar} onLoad={onMediaLoad} />
         </div>
       );
     }
@@ -936,7 +1003,7 @@ function MessageBubble({
         )}
       </div>
     );
-  }, [isOwn, onCloseSidebar, message.link_previews]);
+  }, [isOwn, onCloseSidebar, message.link_previews, onMediaLoad]);
   
   const hasMedia = !!message.media_url;
   const isImage = message.media_type === 'image';
@@ -1021,6 +1088,7 @@ function MessageBubble({
                         content={message.content}
                         conversation={conversation}
                         onImageClick={handleImageClick}
+                        onMediaLoad={onMediaLoad}
                       />
                     </div>
                   )}

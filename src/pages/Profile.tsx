@@ -421,12 +421,12 @@ export default function Profile() {
         </div>
         
         {/* Story Highlights */}
-        {/* <div className="glass-card p-4">
+        <div className="glass-card p-4">
           <h3 className="text-sm font-semibold text-muted-foreground mb-3">
             {language === 'ar' ? 'المختصرات' : 'Highlights'}
           </h3>
           <StoryHighlights userId={profile.user_id} isOwnProfile={isOwnProfile} />
-        </div> */}
+        </div>
         
         {/* Posts Tabs */}
         <Tabs defaultValue="posts" className="w-full">

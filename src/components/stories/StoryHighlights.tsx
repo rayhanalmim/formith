@@ -41,7 +41,7 @@ export function StoryHighlights({ userId, isOwnProfile }: StoryHighlightsProps) 
     <>
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
         {/* Add Highlight Button (only for own profile) */}
-        {isOwnProfile && (
+        {/* {isOwnProfile && (
           <button
             onClick={() => setCreateDialogOpen(true)}
             className="flex flex-col items-center gap-2 flex-shrink-0"
@@ -57,7 +57,7 @@ export function StoryHighlights({ userId, isOwnProfile }: StoryHighlightsProps) 
               {language === 'ar' ? 'جديد' : 'New'}
             </span>
           </button>
-        )}
+        )} */}
         
         {/* Highlights */}
         {highlights?.map((highlight) => (

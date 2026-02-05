@@ -180,7 +180,7 @@ export function StoryEmojiPicker({ onSelect, onClose }: StoryEmojiPickerProps) {
       
       {/* Modal Content */}
       <div 
-        className="relative w-full max-w-[420px] bg-[#1a1a1a] rounded-t-3xl flex flex-col"
+        className="relative w-full max-w-[410px] bg-[#1a1a1a] rounded-t-3xl flex flex-col"
         style={{ 
           maxHeight: '70vh',
           pointerEvents: 'auto'
@@ -224,7 +224,7 @@ export function StoryEmojiPicker({ onSelect, onClose }: StoryEmojiPickerProps) {
 
         {/* Category tabs */}
         {!searchQuery && (
-          <div className="flex gap-1 px-4 pb-2 overflow-x-auto scrollbar-hide shrink-0" style={{ pointerEvents: 'auto' }}>
+          <div className="flex gap-1.5 px-4 py-1 pb-2 overflow-x-auto scrollbar-hide shrink-0" style={{ pointerEvents: 'auto' }}>
             {Object.entries(EMOJI_CATEGORIES).map(([key, cat]) => (
               <button
                 key={key}
@@ -236,7 +236,7 @@ export function StoryEmojiPicker({ onSelect, onClose }: StoryEmojiPickerProps) {
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 className={cn(
-                  "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl transition-all cursor-pointer",
+                  "flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xl transition-all cursor-pointer",
                   selectedCategory === key
                     ? "bg-primary/20 ring-2 ring-primary"
                     : "bg-white/10 hover:bg-white/20"

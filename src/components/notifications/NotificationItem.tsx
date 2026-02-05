@@ -15,6 +15,7 @@ interface NotificationItemProps {
 const iconMap = {
   like: Heart,
   comment: MessageCircle,
+  comment_reply: Reply,
   comment_like: ThumbsUp,
   reply: Reply,
   follow: UserPlus,
@@ -29,6 +30,7 @@ const iconMap = {
 const iconColorMap = {
   like: 'text-destructive bg-destructive/10',
   comment: 'text-info bg-info/10',
+  comment_reply: 'text-emerald-500 bg-emerald-500/10',
   comment_like: 'text-amber-500 bg-amber-500/10',
   reply: 'text-emerald-500 bg-emerald-500/10',
   follow: 'text-primary bg-primary/10',
@@ -89,6 +91,7 @@ export function NotificationItem({ notification, onClose, isNew = false }: Notif
     switch (notification.type) {
       case 'like':
       case 'comment':
+      case 'comment_reply':
       case 'comment_like':
       case 'reply':
       case 'mention_post':

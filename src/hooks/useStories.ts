@@ -205,3 +205,79 @@ export function useReplyToStory() {
     },
   });
 }
+
+// ============ EMOJI BUTTON REACTIONS ============
+
+// React to emoji button on story
+export function useReactToEmojiButton() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  return useMutation({
+    mutationFn: async ({ storyId, emoji }: { storyId: string; emoji: string }) => {
+      if (!user) throw new Error('Must be logged in');
+      const response = await api.reactToEmojiButton(storyId, emoji);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['emoji-reactions', variables.storyId] });
+      queryClient.invalidateQueries({ queryKey: ['unseen-emoji-reactions', variables.storyId] });
+    },
+  });
+}
+
+// Get unseen emoji reactions for story owner
+export function useUnseenEmojiReactions(storyId: string, enabled = true) {
+  const queryClient = useQueryClient();
+  
+  // Listen for real-time emoji reaction updates
+  useEffect(() => {
+    if (!storyId || !enabled) return;
+
+    const unsubscribe = socketClient.onStoryEmojiReaction((event) => {
+      if (event.storyId === storyId) {
+        // Invalidate both queries when a new reaction comes in
+        queryClient.invalidateQueries({ queryKey: ['unseen-emoji-reactions', storyId] });
+        queryClient.invalidateQueries({ queryKey: ['emoji-reactions', storyId] });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [storyId, enabled, queryClient]);
+
+  return useQuery({
+    queryKey: ['unseen-emoji-reactions', storyId],
+    queryFn: async () => {
+      const response = await api.getUnseenEmojiReactions(storyId);
+      return response.data || { users: [], totalCount: 0 };
+    },
+    enabled: !!storyId && enabled,
+  });
+}
+
+// Get all emoji reactors for story
+export function useEmojiReactors(storyId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['emoji-reactions', storyId],
+    queryFn: async () => {
+      const response = await api.getEmojiReactors(storyId);
+      return response.data || [];
+    },
+    enabled: !!storyId && enabled,
+  });
+}
+
+// Mark emoji reactions as seen
+export function useMarkEmojiReactionsAsSeen() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (storyId: string) => {
+      const response = await api.markEmojiReactionsAsSeen(storyId);
+      return response.data;
+    },
+    onSuccess: (_, storyId) => {
+      queryClient.invalidateQueries({ queryKey: ['unseen-emoji-reactions', storyId] });
+    },
+  });
+}

@@ -1042,6 +1042,28 @@ class ApiClient {
     });
   }
 
+  // Story Emoji Button Reactions
+  async reactToEmojiButton(storyId: string, emoji: string): Promise<ApiResponse<{ isNew: boolean }>> {
+    return this.request<ApiResponse<{ isNew: boolean }>>('/stories/emoji-react', {
+      method: 'POST',
+      body: JSON.stringify({ storyId, emoji }),
+    });
+  }
+
+  async getUnseenEmojiReactions(storyId: string): Promise<ApiResponse<{ users: any[]; totalCount: number }>> {
+    return this.request<ApiResponse<{ users: any[]; totalCount: number }>>(`/stories/emoji-reactions/unseen/${storyId}`);
+  }
+
+  async getEmojiReactors(storyId: string): Promise<ApiResponse<any[]>> {
+    return this.request<ApiResponse<any[]>>(`/stories/emoji-reactions/${storyId}`);
+  }
+
+  async markEmojiReactionsAsSeen(storyId: string): Promise<ApiResponse<{ markedCount: number }>> {
+    return this.request<ApiResponse<{ markedCount: number }>>(`/stories/emoji-reactions/mark-seen/${storyId}`, {
+      method: 'POST',
+    });
+  }
+
   // DM Reactions
   async getDMReactions(messageId: string): Promise<ApiResponse<any[]>> {
     return this.request<ApiResponse<any[]>>(`/messages/reactions/${messageId}`);

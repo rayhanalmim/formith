@@ -347,6 +347,7 @@ export function useSendMessage() {
         media_url: variables.mediaUrl || null,
         media_type: variables.mediaType || null,
         is_deleted: false,
+        link_previews: variables.linkPreviews ? JSON.stringify(variables.linkPreviews) : null,
         reply_to_id: variables.replyToId || null,
         reply_content: variables.replyContent || null,
         reply_sender_id: variables.replySenderId || null,
@@ -372,8 +373,15 @@ export function useSendMessage() {
         ['messages', variables.conversationId],
         (old) => {
           if (!old) return [data];
+          // Find the optimistic message to preserve link_previews if server didn't return it
+          const optimisticMsg = old.find(msg => msg.id === context?.optimisticId);
+          const mergedData = {
+            ...data,
+            // Preserve link_previews from optimistic message if server response doesn't have it
+            link_previews: data.link_previews || optimisticMsg?.link_previews || null,
+          };
           // Remove the optimistic message and add the real one
-          return old.filter(msg => msg.id !== context?.optimisticId).concat(data);
+          return old.filter(msg => msg.id !== context?.optimisticId).concat(mergedData);
         }
       );
       queryClient.invalidateQueries({ queryKey: ['conversations'] });

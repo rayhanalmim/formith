@@ -25,6 +25,7 @@ interface EncryptedMediaDisplayProps {
   conversation: Conversation;
   className?: string;
   onImageClick?: (decryptedUrl: string) => void;
+  onMediaLoad?: () => void;
 }
 
 /**
@@ -38,6 +39,7 @@ export const EncryptedMediaDisplay = memo(function EncryptedMediaDisplay({
   conversation,
   className,
   onImageClick,
+  onMediaLoad,
 }: EncryptedMediaDisplayProps) {
   const { user } = useAuth();
   const [decryptedUrl, setDecryptedUrl] = useState<string | null>(null);
@@ -191,6 +193,7 @@ export const EncryptedMediaDisplay = memo(function EncryptedMediaDisplay({
             "max-w-full rounded-lg max-h-60 object-cover cursor-pointer hover:opacity-90 transition-opacity",
             className
           )}
+          onLoad={onMediaLoad}
         />
       </button>
     );

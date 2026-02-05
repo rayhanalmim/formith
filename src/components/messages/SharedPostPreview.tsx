@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { doClient } from '@/lib/do-client';
+import { api } from '@/lib/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { BadgeCheck, ExternalLink, Heart, MessageCircle, Eye, Loader2 } from 'lucide-react';
@@ -12,6 +13,7 @@ interface SharedPostPreviewProps {
   postUrl: string;
   isOwn: boolean;
   onCloseChatSidebar?: () => void;
+  onLoad?: () => void;
 }
 
 interface PostData {
@@ -138,7 +140,7 @@ function extractCategory(url: string): string | null {
   }
 }
 
-export function SharedPostPreview({ postUrl, isOwn, onCloseChatSidebar }: SharedPostPreviewProps) {
+export function SharedPostPreview({ postUrl, isOwn, onCloseChatSidebar, onLoad }: SharedPostPreviewProps) {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const postSlug = extractPostSlug(postUrl);
@@ -155,82 +157,88 @@ export function SharedPostPreview({ postUrl, isOwn, onCloseChatSidebar }: Shared
 
       console.log('Query: Fetching post with slug/ID:', postSlug);
 
-      // Try to fetch by slug first using doClient
-      let posts = await doClient.from('posts')
-        .eq('slug', postSlug)
-        .select('id, user_id, content, slug, likes_count, comments_count, views_count, created_at, category_id, repost_of_id');
-
-      let postRow = posts?.[0];
-      console.log('Query: Slug query result:', postRow);
+      // Try to fetch by slug first using Node.js API
+      let response = await api.getPostBySlug(postSlug);
+      let postData = response.success ? response.data : null;
+      console.log('Query: Slug query result:', postData);
 
       // If not found by slug, try by ID
-      if (!postRow) {
+      if (!postData) {
         console.log('Query: Trying ID lookup instead');
-        const postsById = await doClient.from('posts')
-          .eq('id', postSlug)
-          .select('id, user_id, content, slug, likes_count, comments_count, views_count, created_at, category_id, repost_of_id');
-        
-        postRow = postsById?.[0];
-        console.log('Query: ID query result:', postRow);
+        response = await api.getPostById(postSlug);
+        postData = response.success ? response.data : null;
+        console.log('Query: ID query result:', postData);
       }
       
-      if (!postRow) {
+      if (!postData) {
         console.log('Query: No data found for postSlug:', postSlug);
         return null;
       }
       
-      console.log('Query: Successfully found post:', postRow.id, postRow.slug, postRow.content?.substring(0, 50));
-      
-      // Fetch related data in parallel
-      const [profiles, media, categories] = await Promise.all([
-        doClient.from('profiles')
-          .eq('user_id', postRow.user_id)
-          .select('user_id, username, display_name, display_name_ar, avatar_url, is_verified'),
-        doClient.from('post_media')
-          .eq('post_id', postRow.id)
-          .select('id, media_url, media_type'),
-        postRow.category_id 
-          ? doClient.from('categories')
-              .eq('id', postRow.category_id)
-              .select('slug, name_en, name_ar')
-          : Promise.resolve([])
-      ]);
-
-      const profile = profiles?.[0] || null;
-      const category = categories?.[0] || null;
-      let postMedia = media || [];
-      
-      // If this is a repost and has no media, try to fetch original post's media
-      if (postRow.repost_of_id && postMedia.length === 0) {
-        console.log('Query: Fetching original post media for repost');
-        const originalMedia = await doClient.from('post_media')
-          .eq('post_id', postRow.repost_of_id)
-          .select('id, media_url, media_type');
-        
-        if (originalMedia && originalMedia.length > 0) {
-          console.log('Query: Found original post media:', originalMedia.length, 'items');
-          postMedia = originalMedia;
-        }
-      }
+      console.log('Query: Successfully found post:', postData.id, postData.slug, postData.content?.substring(0, 50));
       
       return {
-        id: postRow.id,
-        content: postRow.content,
-        slug: postRow.slug,
-        likes_count: postRow.likes_count || 0,
-        comments_count: postRow.comments_count || 0,
-        views_count: postRow.views_count || 0,
-        created_at: postRow.created_at,
-        category_id: postRow.category_id,
-        repost_of_id: postRow.repost_of_id,
-        profiles: profile as PostData['profiles'],
-        post_media: postMedia as PostData['post_media'],
-        categories: category as PostData['categories'],
+        id: postData.id,
+        content: postData.content,
+        slug: postData.slug || null,
+        likes_count: postData.likes_count || 0,
+        comments_count: postData.comments_count || 0,
+        views_count: postData.views_count || 0,
+        created_at: postData.created_at,
+        category_id: postData.category_id || null,
+        repost_of_id: postData.repost_of_id || null,
+        profiles: postData.profile ? {
+          user_id: postData.profile.user_id,
+          username: postData.profile.username,
+          display_name: postData.profile.display_name,
+          display_name_ar: postData.profile.display_name_ar,
+          avatar_url: postData.profile.avatar_url,
+          is_verified: postData.profile.is_verified || false,
+        } : null as any,
+        post_media: postData.media?.map((m: any) => ({
+          id: m.id,
+          media_url: m.media_url,
+          media_type: m.media_type,
+        })) || [],
+        categories: postData.category ? {
+          slug: postData.category.slug,
+          name_en: postData.category.name_en,
+          name_ar: postData.category.name_ar,
+        } : null,
       };
     },
     enabled: !!postSlug,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
+
+  // Trigger onLoad when post data finishes loading
+  useEffect(() => {
+    if (!isLoading && post && onLoad) {
+      // Multiple scroll attempts to ensure it works
+      onLoad();
+      setTimeout(() => onLoad(), 100);
+      setTimeout(() => onLoad(), 300);
+      setTimeout(() => onLoad(), 600);
+    }
+  }, [isLoading, post, onLoad]);
+
+  // Use useLayoutEffect to trigger scroll after DOM updates
+  useLayoutEffect(() => {
+    if (!isLoading && post && onLoad) {
+      // Trigger scroll after layout is calculated
+      requestAnimationFrame(() => {
+        onLoad();
+        setTimeout(() => onLoad(), 200);
+      });
+    }
+  }, [isLoading, post, onLoad]);
+
+  // Trigger onLoad even for error state to ensure auto-scroll
+  useEffect(() => {
+    if ((error || !post) && onLoad) {
+      setTimeout(() => onLoad(), 100);
+    }
+  }, [error, post, onLoad]);
 
   if (!postSlug) {
     console.log('SharedPostPreview: No postSlug, returning null');
@@ -422,18 +430,25 @@ export function SharedPostPreview({ postUrl, isOwn, onCloseChatSidebar }: Shared
             className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
             loading="lazy"
             style={{ objectFit: 'cover' }}
+            onLoad={() => {
+              // Trigger scroll when image loads
+              if (onLoad) onLoad();
+            }}
           />
           {/* Overlay gradient for better text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
         </div>
       ) : (
-        // Fallback header for posts without images
-        <div className={cn(
-          "h-24 bg-gradient-to-br flex items-center justify-center",
-          isOwn 
-            ? "from-primary-foreground/10 to-primary-foreground/5" 
-            : "from-muted/20 to-muted/5"
-        )}>
+        // Fallback header for posts without images - call onLoad since no image to wait for
+        <div 
+          className={cn(
+            "h-24 bg-gradient-to-br flex items-center justify-center",
+            isOwn 
+              ? "from-primary-foreground/10 to-primary-foreground/5" 
+              : "from-muted/20 to-muted/5"
+          )}
+          ref={(el) => { if (el && onLoad) setTimeout(onLoad, 50); }}
+        >
           <div className="text-center px-4">
             <div className={cn(
               "text-lg font-bold mb-1",

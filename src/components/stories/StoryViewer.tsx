@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useViewStory, useReplyToStory, useReactToStory, useDeleteStory, useStoryViewers, type UserStories, type Story } from '@/hooks/useStories';
+import { useViewStory, useReplyToStory, useReactToStory, useDeleteStory, useStoryViewers, useReactToEmojiButton, useUnseenEmojiReactions, useEmojiReactors, useMarkEmojiReactionsAsSeen, type UserStories, type Story } from '@/hooks/useStories';
 import { StoryAnalyticsSheet } from './StoryAnalyticsSheet';
 import { useUserHighlights, useAddToHighlight, useCreateHighlight } from '@/hooks/useStoryHighlights';
 import { getAvatarUrl } from '@/lib/default-images';
@@ -70,22 +70,39 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-// Emoji float animation component
-function EmojiFloatAnimation({ emoji, onComplete }: { emoji: string; onComplete: () => void }) {
-  // Pre-generate random values once using useRef to avoid re-renders changing them
+// Emoji float animation component - enhanced with more spread and visual appeal
+function EmojiFloatAnimation({ 
+  emoji, 
+  onComplete, 
+  count = 10 
+}: { 
+  emoji: string; 
+  onComplete: () => void;
+  count?: number;
+}) {
+  // Pre-generate random values with more spread to the left for visual appeal
   const emojisRef = useRef(
-    Array.from({ length: 25 }).map((_, i) => ({
+    Array.from({ length: count }).map((_, i) => ({
       id: i,
-      x: 10 + Math.random() * 80,
-      delay: Math.random() * 0.6,
-      duration: 2 + Math.random() * 1,
+      // Spread more to the left (5-70% range, weighted towards left)
+      x: 5 + Math.random() * 65,
+      // Staggered delays for wave effect
+      delay: (i * 0.08) + Math.random() * 0.3,
+      // Varied durations
+      duration: 1.8 + Math.random() * 1.2,
+      // Random rotation direction
+      rotation: Math.random() > 0.5 ? 1 : -1,
+      // Random scale variation
+      scale: 0.8 + Math.random() * 0.6,
+      // Horizontal drift
+      drift: (Math.random() - 0.5) * 30,
     }))
   );
   
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete();
-    }, 3000); // Animation duration
+    }, 3500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -96,11 +113,12 @@ function EmojiFloatAnimation({ emoji, onComplete }: { emoji: string; onComplete:
       {emojis.map((item) => (
         <div
           key={item.id}
-          className="absolute text-4xl"
+          className="absolute"
           style={{
             left: `${item.x}%`,
             bottom: '-60px',
-            animation: `emojiFloatUp ${item.duration}s ease-out forwards`,
+            fontSize: `${24 + item.scale * 16}px`,
+            animation: `emojiFloatUp-${item.id} ${item.duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`,
             animationDelay: `${item.delay}s`,
           }}
         >
@@ -108,19 +126,102 @@ function EmojiFloatAnimation({ emoji, onComplete }: { emoji: string; onComplete:
         </div>
       ))}
       <style>{`
-        @keyframes emojiFloatUp {
-          0% {
-            transform: translateY(0) scale(0.8) rotate(0deg);
-            opacity: 1;
+        ${emojis.map(item => `
+          @keyframes emojiFloatUp-${item.id} {
+            0% {
+              transform: translateY(0) translateX(0) scale(0.5) rotate(0deg);
+              opacity: 0;
+            }
+            10% {
+              opacity: 1;
+              transform: translateY(-10vh) translateX(${item.drift * 0.3}px) scale(${item.scale}) rotate(${item.rotation * 5}deg);
+            }
+            50% {
+              opacity: 1;
+              transform: translateY(-50vh) translateX(${item.drift}px) scale(${item.scale * 1.1}) rotate(${item.rotation * 15}deg);
+            }
+            100% {
+              transform: translateY(-110vh) translateX(${item.drift * 1.5}px) scale(${item.scale * 0.8}) rotate(${item.rotation * 25}deg);
+              opacity: 0;
+            }
           }
-          50% {
-            opacity: 1;
+        `).join('\n')}
+      `}</style>
+    </div>
+  );
+}
+
+// Accumulated emoji animation for owner's first view (shows all unseen reactions)
+function AccumulatedEmojiAnimation({ 
+  emoji, 
+  totalCount, 
+  onComplete 
+}: { 
+  emoji: string; 
+  totalCount: number;
+  onComplete: () => void;
+}) {
+  // Generate emojis based on total count (max 50 for performance)
+  const emojiCount = Math.min(totalCount, 50);
+  const emojisRef = useRef(
+    Array.from({ length: emojiCount }).map((_, i) => ({
+      id: i,
+      x: 5 + Math.random() * 70,
+      delay: (i * 0.05) + Math.random() * 0.2,
+      duration: 2 + Math.random() * 1.5,
+      rotation: Math.random() > 0.5 ? 1 : -1,
+      scale: 0.7 + Math.random() * 0.8,
+      drift: (Math.random() - 0.5) * 40,
+    }))
+  );
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete();
+    }, 4000 + emojiCount * 30);
+    return () => clearTimeout(timer);
+  }, [onComplete, emojiCount]);
+
+  const emojis = emojisRef.current;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">
+      {emojis.map((item) => (
+        <div
+          key={item.id}
+          className="absolute"
+          style={{
+            left: `${item.x}%`,
+            bottom: '-60px',
+            fontSize: `${22 + item.scale * 14}px`,
+            animation: `accumulatedFloat-${item.id} ${item.duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`,
+            animationDelay: `${item.delay}s`,
+          }}
+        >
+          {emoji}
+        </div>
+      ))}
+      <style>{`
+        ${emojis.map(item => `
+          @keyframes accumulatedFloat-${item.id} {
+            0% {
+              transform: translateY(0) translateX(0) scale(0.3) rotate(0deg);
+              opacity: 0;
+            }
+            15% {
+              opacity: 1;
+              transform: translateY(-15vh) translateX(${item.drift * 0.3}px) scale(${item.scale}) rotate(${item.rotation * 8}deg);
+            }
+            50% {
+              opacity: 1;
+              transform: translateY(-50vh) translateX(${item.drift}px) scale(${item.scale * 1.15}) rotate(${item.rotation * 18}deg);
+            }
+            100% {
+              transform: translateY(-115vh) translateX(${item.drift * 1.8}px) scale(${item.scale * 0.7}) rotate(${item.rotation * 30}deg);
+              opacity: 0;
+            }
           }
-          100% {
-            transform: translateY(-110vh) scale(1.3) rotate(20deg);
-            opacity: 0;
-          }
-        }
+        `).join('\n')}
       `}</style>
     </div>
   );
@@ -169,6 +270,10 @@ export function StoryViewer({
   const [isVideoBuffering, setIsVideoBuffering] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false); // Track when video is actually playing
   const [isEmojiAnimating, setIsEmojiAnimating] = useState(false); // Floating emoji animation state
+  const [isEmojiButtonPressed, setIsEmojiButtonPressed] = useState(false); // Press animation state
+  const [showEmojiReactors, setShowEmojiReactors] = useState(false); // Show reactors sheet for owner
+  const [showAccumulatedAnimation, setShowAccumulatedAnimation] = useState(false); // Accumulated reactions animation
+  const [hasShownAccumulated, setHasShownAccumulated] = useState<Set<string>>(new Set()); // Track shown accumulated per story
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -183,6 +288,35 @@ export function StoryViewer({
   const currentUser = userStories[currentUserIndex];
   const currentStory = currentUser?.stories[currentStoryIndex];
   const isOwnStory = currentUser?.user_id === user?.id;
+  
+  // Emoji button reaction hooks
+  const reactToEmojiButton = useReactToEmojiButton();
+  const markEmojiReactionsAsSeen = useMarkEmojiReactionsAsSeen();
+  const { data: unseenReactions } = useUnseenEmojiReactions(
+    currentStory?.id || '', 
+    isOwnStory && !!currentStory?.reaction_emoji
+  );
+  const { data: emojiReactors } = useEmojiReactors(
+    currentStory?.id || '',
+    showEmojiReactors && isOwnStory
+  );
+  
+  // Show accumulated animation for owner when they first view the story
+  useEffect(() => {
+    if (
+      isOwnStory && 
+      currentStory?.id && 
+      currentStory?.reaction_emoji &&
+      unseenReactions && 
+      unseenReactions.totalCount > 0 && 
+      !hasShownAccumulated.has(currentStory.id)
+    ) {
+      setShowAccumulatedAnimation(true);
+      setHasShownAccumulated(prev => new Set(prev).add(currentStory.id));
+      // Mark reactions as seen after showing
+      markEmojiReactionsAsSeen.mutate(currentStory.id);
+    }
+  }, [isOwnStory, currentStory?.id, currentStory?.reaction_emoji, unseenReactions, hasShownAccumulated, markEmojiReactionsAsSeen]);
   
   // Calculate next story for preloading
   const getNextStory = useCallback(() => {
@@ -913,41 +1047,127 @@ export function StoryViewer({
             </div>
           ))}
           
-          {/* Tappable Reaction Emoji - Positioned based on upload placement */}
+          {/* Tappable Reaction Emoji - Curved style with press animation */}
           {currentStory.reaction_emoji && (
             <div
-              className="absolute z-30 cursor-pointer transition-transform hover:scale-110 active:scale-95"
+              className="absolute z-30 cursor-pointer"
               style={{
                 left: currentStory.reaction_emoji.position ? `${currentStory.reaction_emoji.position.x}%` : '80%',
                 top: currentStory.reaction_emoji.position ? `${currentStory.reaction_emoji.position.y}%` : '70%',
-                transform: 'translate(-50%, -50%)',
+              }}
+              onMouseDown={() => setIsEmojiButtonPressed(true)}
+              onMouseUp={() => setIsEmojiButtonPressed(false)}
+              onMouseLeave={() => setIsEmojiButtonPressed(false)}
+              onTouchStart={() => setIsEmojiButtonPressed(true)}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                setIsEmojiButtonPressed(false);
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsEmojiAnimating(true);
-                // Also send a reaction to the story owner
-                if (!isOwnStory) {
-                  reactToStory.mutate({ 
+                
+                if (isOwnStory) {
+                  // Owner taps: show reactors list
+                  setShowEmojiReactors(true);
+                  setIsPaused(true);
+                } else {
+                  // Other users tap: show floating animation and record reaction
+                  setIsEmojiAnimating(true);
+                  reactToEmojiButton.mutate({ 
                     storyId: currentStory.id, 
                     emoji: currentStory.reaction_emoji!.emoji 
                   });
                 }
               }}
-              onTouchEnd={(e) => {
-                e.stopPropagation();
-              }}
             >
-              <div className="w-14 h-14 rounded-full bg-white/90 shadow-xl flex items-center justify-center ring-2 ring-white/50">
-                <span className="text-3xl">{currentStory.reaction_emoji.emoji}</span>
+              {/* Curved bubble container like reference image */}
+              <div 
+                className="relative"
+                style={{
+                  transform: `translate(-50%, -50%) scale(${isEmojiButtonPressed ? 0.85 : 1})`,
+                  transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                }}
+              >
+                {/* Circular ripple effect on press - slower animation */}
+                {isEmojiButtonPressed && (
+                  <div 
+                    className="absolute -inset-2 rounded-full bg-primary/30"
+                    style={{
+                      animation: 'ripple 0.8s ease-out'
+                    }}
+                  />
+                )}
+                
+                {/* Main circular button with shadow and glow */}
+                <div 
+                  className={cn(
+                    "w-16 h-16 rounded-full bg-white shadow-2xl flex items-center justify-center relative",
+                    "ring-4 ring-white/30 backdrop-blur-sm",
+                    "transition-all duration-300 ease-out",
+                    isEmojiButtonPressed && "shadow-lg ring-2 bg-primary/5"
+                  )}
+                  style={{
+                    boxShadow: isEmojiButtonPressed 
+                      ? '0 4px 15px rgba(0,0,0,0.2)' 
+                      : '0 8px 30px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.1)'
+                  }}
+                >
+                  <span className="text-4xl">
+                    {currentStory.reaction_emoji.emoji}
+                  </span>
+                </div>
+                
+                <style>{`
+                  @keyframes ripple {
+                    0% {
+                      transform: scale(0.8);
+                      opacity: 1;
+                    }
+                    100% {
+                      transform: scale(2);
+                      opacity: 0;
+                    }
+                  }
+                `}</style>
+                
+                {/* Curved tail/pointer for bubble effect */}
+                <div 
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2"
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '10px solid transparent',
+                    borderRight: '10px solid transparent',
+                    borderTop: '12px solid white',
+                    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))'
+                  }}
+                />
+                
+                {/* Reaction count badge for owner - shows unique user count */}
+                {isOwnStory && unseenReactions && unseenReactions.users.length > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 shadow-lg animate-pulse">
+                    {unseenReactions.users.length > 99 ? '99+' : unseenReactions.users.length}
+                  </div>
+                )}
               </div>
             </div>
           )}
           
-          {/* Floating Emoji Animation - Full screen overlay */}
-          {isEmojiAnimating && currentStory.reaction_emoji && (
+          {/* Floating Emoji Animation - For other users */}
+          {isEmojiAnimating && currentStory.reaction_emoji && !isOwnStory && (
             <EmojiFloatAnimation 
               emoji={currentStory.reaction_emoji.emoji} 
-              onComplete={() => setIsEmojiAnimating(false)} 
+              onComplete={() => setIsEmojiAnimating(false)}
+              count={10}
+            />
+          )}
+          
+          {/* Accumulated Emoji Animation - For owner's first view - 10x per user */}
+          {showAccumulatedAnimation && currentStory.reaction_emoji && isOwnStory && unseenReactions && (
+            <AccumulatedEmojiAnimation 
+              emoji={currentStory.reaction_emoji.emoji}
+              totalCount={unseenReactions.users.length * 10}
+              onComplete={() => setShowAccumulatedAnimation(false)}
             />
           )}
         </div>
@@ -1350,6 +1570,72 @@ export function StoryViewer({
           if (!open) setIsPaused(false);
         }}
       />
+
+      {/* Emoji Reactors Sheet - For story owner */}
+      <Sheet open={showEmojiReactors} onOpenChange={(open) => {
+        setShowEmojiReactors(open);
+        if (!open) setIsPaused(false);
+      }}>
+        <SheetContent side="bottom" className="h-[60vh] z-[99999] max-w-[422px] mx-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {currentStory?.reaction_emoji && (
+                <span className="text-2xl">{currentStory.reaction_emoji.emoji}</span>
+              )}
+              {language === 'ar' ? 'التفاعلات' : 'Reactions'}
+            </SheetTitle>
+          </SheetHeader>
+          
+          <ScrollArea className="h-full mt-4 pr-4">
+            {!emojiReactors || emojiReactors.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <span className="text-4xl mb-3">{currentStory?.reaction_emoji?.emoji || '😊'}</span>
+                <p className="text-sm">
+                  {language === 'ar' ? 'لا توجد تفاعلات بعد' : 'No reactions yet'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {emojiReactors.map((reactor) => (
+                  <Link
+                    key={reactor.id}
+                    to={`/profile/${reactor.profile?.username || reactor.user_id}`}
+                    onClick={() => {
+                      setShowEmojiReactors(false);
+                      onClose();
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <img
+                      src={getAvatarUrl(reactor.profile?.avatar_url)}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium truncate">
+                          {reactor.profile?.display_name || reactor.profile?.username || 'User'}
+                        </span>
+                        {reactor.profile?.is_verified && (
+                          <BadgeCheck className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                      </div>
+                      {reactor.profile?.username && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          @{reactor.profile.username}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xl">
+                      {reactor.emoji}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>,
     document.body
   );

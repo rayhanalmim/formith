@@ -114,6 +114,7 @@ export function useEncryptedSendMessage({ conversation, onSuccess }: UseEncrypte
             media_type: null,
             is_deleted: false,
             edited_at: null,
+            link_previews: linkPreviews.length > 0 ? JSON.stringify(linkPreviews) : null,
             reply_to_id: replyToId || null,
             reply_content: replyContent || null,
             reply_sender_id: replySenderId || null,
