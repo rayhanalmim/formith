@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToggleCommentLike, useUpdateComment, useDeleteComment, type Comment } from '@/hooks/useComments';
 import { subscribeToCommentLikeUpdates } from '@/hooks/useRealtimeCommentLikes';
-import { BadgeCheck, Heart, MessageCircle, ChevronDown, Loader2, Check, X, Trash2, Pencil } from 'lucide-react';
+import { BadgeCheck, Heart, MessageCircle, ChevronDown, Loader2, Check, X, Trash2, Pencil, Flag, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/lib/default-images';
 import { formatDistanceToNow, differenceInMinutes } from 'date-fns';
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import type { CommentProfile } from '@/hooks/useComments';
 import { LinkPreview } from '@/components/shared/LinkPreview';
+import { ReportCommentDialog } from '@/components/comments/ReportCommentDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +26,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface CommentItemProps {
   comment: Comment & { hasMoreReplies?: boolean; totalReplies?: number };
@@ -50,6 +58,7 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOwner = user?.id === comment.user_id;
@@ -243,9 +252,56 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
         
         <div className="flex-1 min-w-0">
           <div className={cn(
-            "bg-muted/50 rounded-2xl px-4 py-2.5",
+            "bg-muted/50 rounded-2xl px-4 py-2.5 relative",
             canEdit && !isEditing && "cursor-text hover:bg-muted/70 transition-colors"
           )}>
+            {/* Three-dot menu */}
+            {user && (
+              <div className="absolute top-1.5 end-1.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="glass-card min-w-[140px]">
+                    {canEdit && (
+                      <DropdownMenuItem
+                        className="cursor-pointer text-xs"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Pencil className="h-3.5 w-3.5 me-2" />
+                        {language === 'ar' ? 'تعديل' : 'Edit'}
+                      </DropdownMenuItem>
+                    )}
+                    {isOwner && (
+                      <>
+                        <DropdownMenuItem
+                          className="cursor-pointer text-xs text-destructive"
+                          onClick={() => setShowDeleteDialog(true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 me-2" />
+                          {language === 'ar' ? 'حذف' : 'Delete'}
+                        </DropdownMenuItem>
+                        {canEdit && <DropdownMenuSeparator />}
+                      </>
+                    )}
+                    {!isOwner && (
+                      <DropdownMenuItem
+                        className="cursor-pointer text-xs text-destructive"
+                        onSelect={() => {
+                          setTimeout(() => setShowReportDialog(true), 0);
+                        }}
+                      >
+                        <Flag className="h-3.5 w-3.5 me-2" />
+                        {language === 'ar' ? 'إبلاغ' : 'Report'}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 mb-1">
               <Link 
                 to={`/profile/${profile?.username}`}
@@ -344,26 +400,6 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
                 {language === 'ar' ? 'رد' : 'Reply'}
               </button>
             )}
-            
-            {canEdit && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-xs flex items-center gap-1 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <Pencil className="h-3 w-3" />
-                {language === 'ar' ? 'تعديل' : 'Edit'}
-              </button>
-            )}
-            
-            {isOwner && (
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-xs flex items-center gap-1 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="h-3 w-3" />
-                {language === 'ar' ? 'حذف' : 'Delete'}
-              </button>
-            )}
           </div>
           
           {/* Replies */}
@@ -435,6 +471,14 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Report Comment Dialog */}
+      <ReportCommentDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        commentId={comment.id}
+        postId={postId}
+      />
     </div>
   );
 }

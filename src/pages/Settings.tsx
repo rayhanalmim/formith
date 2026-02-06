@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +20,7 @@ import { StatusSelector, UserStatus } from '@/components/ui/status-selector';
 import { TwoFactorSettings } from '@/components/settings/TwoFactorSettings';
 import { Settings, User, Bell, Lock, Eye, Loader2, Save } from 'lucide-react';
 import { z } from 'zod';
+import { DEFAULT_AVATAR } from '@/lib/default-images';
 
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 
@@ -65,7 +67,7 @@ export default function SettingsPage() {
       setDisplayNameAr(profile.display_name_ar || '');
       setUsername(profile.username || '');
       setBio(profile.bio || '');
-      setAvatarUrl(profile.avatar_url || '');
+      setAvatarUrl(profile.avatar_url || DEFAULT_AVATAR);
       setUserStatus((profile as any).status || 'online');
     }
   }, [profile]);

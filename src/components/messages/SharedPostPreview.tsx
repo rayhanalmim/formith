@@ -9,6 +9,42 @@ import { BadgeCheck, ExternalLink, Heart, MessageCircle, Eye, Loader2 } from 'lu
 import { getAvatarUrl } from '@/lib/default-images';
 import { cn } from '@/lib/utils';
 
+// Helper function to convert URLs in text to clickable links
+function renderContentWithLinks(content: string, isOwn: boolean): JSX.Element {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  
+  const result: JSX.Element[] = [];
+  
+  parts.forEach((part, index) => {
+    if (urlRegex.test(part)) {
+      // It's a URL - make it clickable
+      result.push(
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "underline transition-colors",
+            isOwn 
+              ? "text-primary-foreground hover:text-blue-300" 
+              : "text-blue-600 hover:text-blue-700"
+          )}
+        >
+          {part}
+        </a>
+      );
+    } else if (part) {
+      // It's regular text
+      result.push(<span key={index}>{part}</span>);
+    }
+  });
+  
+  return <>{result}</>;
+}
+
 interface SharedPostPreviewProps {
   postUrl: string;
   isOwn: boolean;
@@ -498,13 +534,13 @@ export function SharedPostPreview({ postUrl, isOwn, onCloseChatSidebar, onLoad }
           )}
         </div>
 
-        {/* Content preview - Enhanced typography */}
+        {/* Content preview - Enhanced typography with clickable links */}
         <div className="space-y-2">
           <p className={cn(
             "text-sm leading-relaxed line-clamp-4 font-normal break-words",
             isOwn ? "text-primary-foreground/95" : "text-foreground/95"
           )}>
-            {post.content}
+            {renderContentWithLinks(post.content, isOwn)}
           </p>
         </div>
 

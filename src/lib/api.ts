@@ -1302,6 +1302,12 @@ class ApiClient {
     });
   }
 
+  async adminDeleteComment(commentId: string): Promise<ApiResponse<{ commentId: string }>> {
+    return this.request<ApiResponse<{ commentId: string }>>(`/admin/comments/${commentId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async bulkDeletePosts(postIds: string[]): Promise<ApiResponse<{ count: number }>> {
     return this.request<ApiResponse<{ count: number }>>('/admin/posts/bulk-delete', {
       method: 'POST',

@@ -998,7 +998,7 @@ function MessageBubble({
         {/* Link Previews */}
         {message.link_previews && (
           <div className="mt-2">
-            <LinkPreview previews={typeof message.link_previews === 'string' ? JSON.parse(message.link_previews) : message.link_previews} />
+            <LinkPreview previews={typeof message.link_previews === 'string' ? JSON.parse(message.link_previews) : message.link_previews} variant="dm" />
           </div>
         )}
       </div>

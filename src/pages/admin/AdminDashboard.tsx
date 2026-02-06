@@ -4,6 +4,7 @@ import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsAdmin, usePendingPostsCount, usePendingReportsCount } from '@/hooks/useAdmin';
+import { useRealtimeReports } from '@/hooks/useRealtimeReports';
 import { 
   Users, 
   FileText, 
@@ -137,6 +138,9 @@ export default function AdminDashboard() {
   const { data: reportsCount } = usePendingReportsCount();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Subscribe to realtime report updates across all admin pages
+  useRealtimeReports();
   
   useEffect(() => {
     if (!authLoading && !user) {

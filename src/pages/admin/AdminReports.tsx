@@ -25,6 +25,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ReportPostPreviewDialog } from '@/components/admin/ReportPostPreviewDialog';
+import { ReportCommentPreviewDialog } from '@/components/admin/ReportCommentPreviewDialog';
 import { Flag, CheckCircle, XCircle, Clock, FileText, MessageCircle, User, Eye, BadgeCheck, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
@@ -44,6 +45,8 @@ export default function AdminReports() {
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewReport, setPreviewReport] = useState<any>(null);
+  const [commentPreviewDialogOpen, setCommentPreviewDialogOpen] = useState(false);
+  const [commentPreviewReport, setCommentPreviewReport] = useState<any>(null);
   
   const pendingReports = reports?.filter(r => r.status === 'pending') || [];
   const resolvedReports = reports?.filter(r => r.status === 'resolved') || [];
@@ -57,8 +60,13 @@ export default function AdminReports() {
   };
 
   const handlePreviewClick = (report: any) => {
-    setPreviewReport(report);
-    setPreviewDialogOpen(true);
+    if (report.comment_id && report.comment) {
+      setCommentPreviewReport(report);
+      setCommentPreviewDialogOpen(true);
+    } else {
+      setPreviewReport(report);
+      setPreviewDialogOpen(true);
+    }
   };
 
   const handleResolveConfirm = async () => {
@@ -89,8 +97,8 @@ export default function AdminReports() {
   };
 
   const getReportTypeIcon = (report: any) => {
-    if (report.post_id) return FileText;
     if (report.comment_id) return MessageCircle;
+    if (report.post_id) return FileText;
     if (report.user_id) return User;
     return Flag;
   };
@@ -102,7 +110,7 @@ export default function AdminReports() {
           <TableRow>
             <TableHead>{language === 'ar' ? 'النوع' : 'Type'}</TableHead>
             <TableHead>{language === 'ar' ? 'المحتوى' : 'Content'}</TableHead>
-            <TableHead>{language === 'ar' ? 'صاحب المنشور' : 'Post Owner'}</TableHead>
+            <TableHead>{language === 'ar' ? 'صاحب المحتوى' : 'Content Owner'}</TableHead>
             <TableHead>{language === 'ar' ? 'السبب' : 'Reason'}</TableHead>
             <TableHead>{language === 'ar' ? 'المُبلِّغ' : 'Reporter'}</TableHead>
             <TableHead>{language === 'ar' ? 'التاريخ' : 'Date'}</TableHead>
@@ -122,10 +130,14 @@ export default function AdminReports() {
               const TypeIcon = getReportTypeIcon(report);
               const reporter = report.reporter as any;
               const post = report.post as any;
+              const comment = report.comment as any;
+              const isCommentReport = !!report.comment_id && !!comment;
               const postOwner = post?.owner;
+              const commentOwner = comment?.owner;
+              const contentOwner = isCommentReport ? commentOwner : postOwner;
               const ownerDisplayName = language === 'ar' 
-                ? (postOwner?.display_name_ar || postOwner?.display_name || postOwner?.username)
-                : (postOwner?.display_name || postOwner?.username);
+                ? (contentOwner?.display_name_ar || contentOwner?.display_name || contentOwner?.username)
+                : (contentOwner?.display_name || contentOwner?.username);
               
               return (
                 <TableRow key={report.id}>
@@ -135,14 +147,29 @@ export default function AdminReports() {
                         <TypeIcon className="h-4 w-4" />
                       </div>
                       <span className="text-sm">
-                        {report.post_id && (language === 'ar' ? 'منشور' : 'Post')}
-                        {report.comment_id && (language === 'ar' ? 'تعليق' : 'Comment')}
-                        {report.user_id && (language === 'ar' ? 'مستخدم' : 'User')}
+                        {isCommentReport 
+                          ? (language === 'ar' ? 'تعليق' : 'Comment')
+                          : report.post_id 
+                            ? (language === 'ar' ? 'منشور' : 'Post')
+                            : report.user_id 
+                              ? (language === 'ar' ? 'مستخدم' : 'User')
+                              : (language === 'ar' ? 'بلاغ' : 'Report')
+                        }
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    {post ? (
+                    {isCommentReport && comment ? (
+                      <div className="max-w-xs">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <MessageCircle className="h-3 w-3" />
+                            {language === 'ar' ? 'تعليق' : 'Comment'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm truncate">{comment.content?.substring(0, 60)}...</p>
+                      </div>
+                    ) : post ? (
                       <div className="max-w-xs">
                         <p className="text-sm truncate">{post.content?.substring(0, 60)}...</p>
                         {post.media?.length > 0 && (
@@ -156,24 +183,24 @@ export default function AdminReports() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {postOwner ? (
+                    {contentOwner ? (
                       <div className="flex items-center gap-2">
                         <img
-                          src={getAvatarUrl(postOwner.avatar_url)}
+                          src={getAvatarUrl(contentOwner.avatar_url)}
                           alt=""
                           className="h-6 w-6 rounded-full bg-muted"
                         />
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1">
                             <span className="text-sm font-medium">{ownerDisplayName}</span>
-                            {postOwner.is_verified && (
+                            {contentOwner.is_verified && (
                               <BadgeCheck className="h-3 w-3 text-primary" />
                             )}
-                            {postOwner.is_banned && (
+                            {contentOwner.is_banned && (
                               <Ban className="h-3 w-3 text-destructive" />
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground">@{postOwner.username}</span>
+                          <span className="text-xs text-muted-foreground">@{contentOwner.username}</span>
                         </div>
                       </div>
                     ) : (
@@ -222,7 +249,7 @@ export default function AdminReports() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {post && (
+                      {(post || (isCommentReport && comment)) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -331,6 +358,16 @@ export default function AdminReports() {
         post={previewReport?.post || null}
         reportReason={previewReport?.reason || ''}
         reportId={previewReport?.id || ''}
+        onActionComplete={() => refetch()}
+      />
+      
+      {/* Comment Preview Dialog */}
+      <ReportCommentPreviewDialog
+        open={commentPreviewDialogOpen}
+        onOpenChange={setCommentPreviewDialogOpen}
+        comment={commentPreviewReport?.comment || null}
+        reportReason={commentPreviewReport?.reason || ''}
+        reportId={commentPreviewReport?.id || ''}
         onActionComplete={() => refetch()}
       />
       

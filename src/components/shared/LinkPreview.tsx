@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface LinkPreviewData {
   url: string;
@@ -11,10 +12,13 @@ interface LinkPreviewData {
 
 interface LinkPreviewProps {
   previews: LinkPreviewData[];
+  variant?: 'default' | 'dm';
 }
 
-export function LinkPreview({ previews }: LinkPreviewProps) {
+export function LinkPreview({ previews, variant = 'default' }: LinkPreviewProps) {
   if (!previews || previews.length === 0) return null;
+
+  const isDM = variant === 'dm';
 
   return (
     <div className="space-y-2 mt-2">
@@ -24,7 +28,7 @@ export function LinkPreview({ previews }: LinkPreviewProps) {
           href={preview.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block border border-border rounded-lg overflow-hidden hover:bg-muted/50 transition-colors"
+          className={`block border border-border rounded-lg overflow-hidden hover:bg-muted/50 transition-colors ${isDM ? 'bg-black/80' : ''}`}
         >
           {preview.image && (
             <div className="w-full h-48 bg-muted">
@@ -38,7 +42,7 @@ export function LinkPreview({ previews }: LinkPreviewProps) {
               />
             </div>
           )}
-          <div className="p-3">
+          <div className={cn("p-3", isDM ? "bg-[#16181D]" : "")}>
             <div className="flex items-start gap-2">
               {preview.favicon && (
                 <img
