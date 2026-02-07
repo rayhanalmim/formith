@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,7 +12,7 @@ import {
   useIsFollowing, 
   useToggleFollow 
 } from '@/hooks/useProfile';
-import { useProfileVisibility } from '@/hooks/useSettings';
+import { useProfileVisibility, useCanMessageUser, useRealtimePrivacySettings } from '@/hooks/useSettings';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PostCard } from '@/components/feed/PostCard';
 import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
@@ -48,7 +49,7 @@ import { LazyAvatar } from '@/components/ui/lazy-image';
 export default function Profile() {
   const { username } = useParams<{ username: string }>();
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -66,6 +67,11 @@ export default function Profile() {
   const toggleFollow = useToggleFollow();
   
   const isOwnProfile = user?.id === profile?.user_id;
+  const { data: canMessageData } = useCanMessageUser(profile?.user_id || '');
+  const canMessage = canMessageData?.canMessage ?? true;
+  
+  // Listen for realtime privacy setting changes
+  useRealtimePrivacySettings();
   
   // Check profile visibility
   const profileVisibility = profileSettings?.profile_visibility || 'public';
@@ -126,6 +132,28 @@ export default function Profile() {
     setShowMessageDialog(true);
   };
 
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto">
+          <div className="glass-card overflow-hidden">
+            <Skeleton className="h-32 w-full" />
+            <div className="p-4">
+              <div className="flex items-end gap-4 -mt-12">
+                <Skeleton className="h-24 w-24 rounded-full" />
+                <div className="flex-1 space-y-2 pb-2">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
   // Require login to view profiles
   if (!user) {
     return (
@@ -316,14 +344,16 @@ export default function Profile() {
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      onClick={handleMessage}
-                    >
-                      <MessageCircle className="h-4 w-4 me-2" />
-                      {language === 'ar' ? 'رسالة' : 'Message'}
-                    </Button>
+                    {canMessage && (
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={handleMessage}
+                      >
+                        <MessageCircle className="h-4 w-4 me-2" />
+                        {language === 'ar' ? 'رسالة' : 'Message'}
+                      </Button>
+                    )}
                     <Button 
                       variant={isFollowing ? 'outline' : 'default'}
                       size="sm"
@@ -421,12 +451,7 @@ export default function Profile() {
         </div>
         
         {/* Story Highlights */}
-        <div className="glass-card p-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3">
-            {language === 'ar' ? 'المختصرات' : 'Highlights'}
-          </h3>
-          <StoryHighlights userId={profile.user_id} isOwnProfile={isOwnProfile} />
-        </div>
+        <StoryHighlights userId={profile.user_id} isOwnProfile={isOwnProfile} />
         
         {/* Posts Tabs */}
         <Tabs defaultValue="posts" className="w-full">

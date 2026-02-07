@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { api } from '@/lib/api';
+import { socketClient } from '@/lib/socket';
 
 export interface UserSettings {
   id: string;
@@ -95,6 +97,27 @@ export function useUpdateSettings() {
       );
     },
   });
+}
+
+// Listen for realtime privacy settings changes from other users
+export function useRealtimePrivacySettings() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const unsub = socketClient.onPrivacySettingsChanged((event) => {
+      const { userId } = event;
+      // Invalidate profile visibility queries for the changed user
+      if (event.profile_visibility !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['user-settings-visibility', userId] });
+      }
+      // Invalidate messaging permission queries for the changed user
+      if (event.allow_messages_from !== undefined) {
+        queryClient.invalidateQueries({ queryKey: ['can-message-user'] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      }
+    });
+    return () => { unsub(); };
+  }, [queryClient]);
 }
 
 export function useChangePassword() {

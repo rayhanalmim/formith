@@ -35,39 +35,25 @@ export function StoryHighlights({ userId, isOwnProfile }: StoryHighlightsProps) 
   
   const hasHighlights = highlights && highlights.length > 0;
   
-  if (!hasHighlights && !isOwnProfile) return null;
+  if (!hasHighlights) return null;
   
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-        {/* Add Highlight Button (only for own profile) */}
-        {/* {isOwnProfile && (
-          <button
-            onClick={() => setCreateDialogOpen(true)}
-            className="flex flex-col items-center gap-2 flex-shrink-0"
-          >
-            <div className={cn(
-              "w-16 h-16 rounded-full flex items-center justify-center",
-              "border-2 border-dashed border-muted-foreground/50 hover:border-primary/70 transition-colors",
-              "bg-muted/30"
-            )}>
-              <Plus className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <span className="text-xs text-muted-foreground truncate w-16 text-center">
-              {language === 'ar' ? 'جديد' : 'New'}
-            </span>
-          </button>
-        )} */}
-        
-        {/* Highlights */}
-        {highlights?.map((highlight) => (
-          <HighlightItem
-            key={highlight.id}
-            highlight={highlight}
-            onClick={() => setSelectedHighlight(highlight)}
-            language={language}
-          />
-        ))}
+      <div className="glass-card p-4">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+          {language === 'ar' ? 'المختصرات' : 'Highlights'}
+        </h3>
+        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+          {/* Highlights */}
+          {highlights?.map((highlight) => (
+            <HighlightItem
+              key={highlight.id}
+              highlight={highlight}
+              onClick={() => setSelectedHighlight(highlight)}
+              language={language}
+            />
+          ))}
+        </div>
       </div>
       
       {/* Highlight Viewer */}
@@ -95,13 +81,26 @@ interface HighlightItemProps {
 }
 
 function HighlightItem({ highlight, onClick, language }: HighlightItemProps) {
-  // Get first story's media as cover if no custom cover
-  // For videos, prefer thumbnail_url, otherwise use media_url
+  // Determine which story to use for cover
   const firstStory = highlight.items?.[0]?.story;
-  const coverImage = highlight.cover_url || 
-    (firstStory?.media_type === 'video' 
-      ? (firstStory.thumbnail_url || firstStory.media_url)
-      : firstStory?.media_url);
+  const isTextCoverRef = highlight.cover_url?.startsWith('text:');
+  
+  // Find the text story referenced by cover_url (text:storyId format)
+  const textCoverStory = isTextCoverRef
+    ? highlight.items?.find(item => item.story_id === highlight.cover_url!.replace('text:', ''))?.story
+    : null;
+  
+  // Determine if cover should be a text story gradient
+  const coverTextStory = textCoverStory || (!highlight.cover_url && firstStory?.media_type === 'text' ? firstStory : null);
+  
+  const coverImage = isTextCoverRef 
+    ? null // Text cover handled separately
+    : highlight.cover_url || 
+      (firstStory?.media_type === 'video' 
+        ? (firstStory.thumbnail_url || firstStory.media_url)
+        : firstStory?.media_type === 'text'
+          ? null
+          : firstStory?.media_url);
   
   const isVideoCover = firstStory?.media_type === 'video' && !highlight.cover_url && !firstStory?.thumbnail_url;
   
@@ -112,7 +111,22 @@ function HighlightItem({ highlight, onClick, language }: HighlightItemProps) {
     >
       <div className="p-0.5 rounded-full bg-gradient-to-br from-muted-foreground/30 to-muted-foreground/10">
         <div className="p-0.5 bg-background rounded-full">
-          {coverImage ? (
+          {coverTextStory ? (
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
+              style={{ background: coverTextStory.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+            >
+              <span
+                className="text-[8px] leading-tight text-center px-1 line-clamp-3 break-words"
+                style={{
+                  color: coverTextStory.text_color || '#ffffff',
+                  fontFamily: coverTextStory.font_family || 'system-ui',
+                }}
+              >
+                {coverTextStory.text_content}
+              </span>
+            </div>
+          ) : coverImage ? (
             isVideoCover ? (
               <VideoThumbnail src={coverImage} title={highlight.title} />
             ) : (

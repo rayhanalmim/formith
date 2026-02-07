@@ -217,16 +217,17 @@ export function useSpacesPostMediaUpload() {
     mutationFn: async (files: File[]): Promise<UploadResult[]> => {
       if (!user) throw new Error('Must be logged in to upload');
 
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm'];
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg'];
       const results: UploadResult[] = [];
       const totalFiles = files.length;
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Validate file
-        if (!allowedTypes.includes(file.type)) {
-          throw new Error(`Invalid file type: ${file.name}. Please upload images or videos only.`);
+        // Validate file (strip codec suffix like ;codecs=opus for matching)
+        const baseType = file.type.split(';')[0].trim();
+        if (!allowedTypes.includes(baseType)) {
+          throw new Error(`Invalid file type: ${file.name}. Please upload images, videos, or audio only.`);
         }
 
         if (file.size > 500 * 1024 * 1024) {
@@ -281,6 +282,15 @@ export function useSpacesPostMediaUpload() {
             );
             results.push(result);
           }
+        } else if (file.type.startsWith('audio/')) {
+          // Audio files (voiceovers) - upload directly without processing
+          console.log('Uploading audio file directly...');
+          const result = await uploadToSpaces(
+            file, 
+            'posts', 
+            (p) => setProgress(Math.round(((i + p / 100) / totalFiles) * 100))
+          );
+          results.push({ ...result, mediaType: 'voice' });
         } else if (isVideo) {
           console.log('Processing video file...');
           try {

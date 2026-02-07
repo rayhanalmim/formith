@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePostBySlug } from '@/hooks/usePostBySlug';
 import { useToggleLike, useToggleBookmark } from '@/hooks/usePosts';
 import { usePostViews } from '@/hooks/usePostViews';
-import { subscribeToCounterUpdates } from '@/hooks/useRealtimePostCounters';
+import { subscribeToCounterUpdates, useRealtimePostCounters } from '@/hooks/useRealtimePostCounters';
 import { CommentSection } from '@/components/comments/CommentSection';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { SEOHead } from '@/components/seo/SEOHead';
@@ -51,6 +51,9 @@ export default function PostDetail() {
   
   // Track views
   const { trackView } = usePostViews(post?.id);
+  
+  // Subscribe to realtime counter updates (comments_count, likes_count, etc.)
+  useRealtimePostCounters();
   
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api } from '@/lib/api';
 import { socketClient } from '@/lib/socket';
+import { isUserOnlineGlobal, isPresenceReady } from '@/hooks/useOnlinePresence';
 
 export type UserStatus = 'online' | 'offline' | 'busy';
 
@@ -60,6 +61,13 @@ export function useUserStatus(userIds: string[]) {
           ['user-statuses', sortedKey],
           (old) => ({ ...old, [event.userId]: 'offline' })
         );
+        // Update last-seen cache with the timestamp from the server
+        if (event.lastSeenAt) {
+          queryClient.setQueryData<Record<string, string | null>>(
+            ['last-seen', sortedKey],
+            (old) => ({ ...old, [event.userId]: event.lastSeenAt! })
+          );
+        }
       }
     });
     
@@ -72,8 +80,23 @@ export function useUserStatus(userIds: string[]) {
   
   return {
     ...query,
-    getStatus: (userId: string): UserStatus => query.data?.[userId] || 'offline',
+    getStatus: (userId: string): UserStatus => {
+      const dbStatus = query.data?.[userId] || 'offline';
+      // If socket presence is ready, use it as source of truth for online/offline
+      if (isPresenceReady()) {
+        if (isUserOnlineGlobal(userId)) return 'online';
+        // Trust DB only for 'busy' status; otherwise the user is offline
+        if (dbStatus === 'busy') return 'busy';
+        return 'offline';
+      }
+      return dbStatus;
+    },
   };
+}
+
+interface SingleUserStatusData {
+  status: UserStatus;
+  lastSeenAt: string | null;
 }
 
 export function useSingleUserStatus(userId: string | undefined) {
@@ -81,11 +104,14 @@ export function useSingleUserStatus(userId: string | undefined) {
   
   const query = useQuery({
     queryKey: ['user-status', userId],
-    queryFn: async (): Promise<UserStatus> => {
-      if (!userId) return 'offline';
+    queryFn: async (): Promise<SingleUserStatusData> => {
+      if (!userId) return { status: 'offline', lastSeenAt: null };
       
       const response = await api.getUserStatus(userId);
-      return (response.data?.status as UserStatus) || 'offline';
+      return {
+        status: (response.data?.status as UserStatus) || 'offline',
+        lastSeenAt: response.data?.last_seen_at || null,
+      };
     },
     enabled: !!userId,
     staleTime: 30000,
@@ -97,19 +123,28 @@ export function useSingleUserStatus(userId: string | undefined) {
     
     const unsubStatusChange = socketClient.onUserStatusChange((event) => {
       if (event.userId === userId) {
-        queryClient.setQueryData(['user-status', userId], (event.status as UserStatus) || 'offline');
+        queryClient.setQueryData<SingleUserStatusData>(['user-status', userId], (old) => ({
+          status: (event.status as UserStatus) || 'offline',
+          lastSeenAt: old?.lastSeenAt || null,
+        }));
       }
     });
     
     const unsubOnline = socketClient.onUserOnline((event) => {
       if (event.userId === userId) {
-        queryClient.setQueryData(['user-status', userId], 'online');
+        queryClient.setQueryData<SingleUserStatusData>(['user-status', userId], (old) => ({
+          status: 'online',
+          lastSeenAt: old?.lastSeenAt || null,
+        }));
       }
     });
     
     const unsubOffline = socketClient.onUserOffline((event) => {
       if (event.userId === userId) {
-        queryClient.setQueryData(['user-status', userId], 'offline');
+        queryClient.setQueryData<SingleUserStatusData>(['user-status', userId], () => ({
+          status: 'offline',
+          lastSeenAt: event.lastSeenAt || new Date().toISOString(),
+        }));
       }
     });
     
@@ -120,5 +155,21 @@ export function useSingleUserStatus(userId: string | undefined) {
     };
   }, [userId, queryClient]);
   
-  return query;
+  // Compute status preferring socket presence over stale DB
+  const computedStatus: UserStatus = (() => {
+    const dbStatus = query.data?.status || 'offline';
+    if (!userId) return 'offline';
+    if (isPresenceReady()) {
+      if (isUserOnlineGlobal(userId)) return 'online';
+      if (dbStatus === 'busy') return 'busy';
+      return 'offline';
+    }
+    return dbStatus;
+  })();
+
+  return {
+    ...query,
+    data: computedStatus,
+    lastSeenAt: query.data?.lastSeenAt || null,
+  };
 }

@@ -111,6 +111,7 @@ export interface TrendingPost {
   likes_count: number;
   comments_count: number;
   created_at: string;
+  link_previews: string | null;
   profile: {
     username: string | null;
     display_name: string | null;
@@ -160,14 +161,18 @@ export interface StoryProfile {
 export interface Story {
   id: string;
   user_id: string;
-  media_url: string;
-  media_type: 'image' | 'video';
+  media_url: string | null;
+  media_type: 'image' | 'video' | 'text';
   thumbnail_url: string | null;
   text_overlay: any;
   stickers: any[];
   filter: string | null;
   audio_url: string | null;
   reaction_emoji: { emoji: string; position: { x: number; y: number } } | null;
+  text_content: string | null;
+  bg_gradient: string | null;
+  font_family: string | null;
+  text_color: string | null;
   created_at: string;
   expires_at: string;
   views_count: number;
@@ -647,8 +652,8 @@ class ApiClient {
     });
   }
 
-  async getUserStatus(userId: string): Promise<ApiResponse<{ status: string }>> {
-    return this.request<ApiResponse<{ status: string }>>(`/users/status/${userId}`);
+  async getUserStatus(userId: string): Promise<ApiResponse<{ status: string; last_seen_at: string | null }>> {
+    return this.request<ApiResponse<{ status: string; last_seen_at: string | null }>>(`/users/status/${userId}`);
   }
 
   async updateUserStatus(userId: string, status: 'online' | 'offline' | 'busy'): Promise<ApiResponse<any>> {
@@ -954,14 +959,18 @@ class ApiClient {
   // Stories CRUD
   async createStory(data: {
     userId: string;
-    mediaUrl: string;
-    mediaType: 'image' | 'video';
+    mediaUrl?: string;
+    mediaType: 'image' | 'video' | 'text';
     thumbnailUrl?: string;
     textOverlay?: any;
     stickers?: any[];
     filter?: string;
     audioUrl?: string;
     reactionEmoji?: { emoji: string; position: { x: number; y: number } };
+    textContent?: string;
+    bgGradient?: string;
+    fontFamily?: string;
+    textColor?: string;
   }): Promise<ApiResponse<any>> {
     return this.request<ApiResponse<any>>('/stories', {
       method: 'POST',

@@ -126,13 +126,24 @@ export function TrendingSidebar() {
           ) : (
             <div className="space-y-3">
               {(trendingPosts || []).map((post, index) => {
-                const displayName = language === 'ar'
-                  ? post.profile.display_name_ar || post.profile.display_name || post.profile.username
-                  : post.profile.display_name || post.profile.username;
                 const contentPreview = post.content.length > 50 
                   ? post.content.substring(0, 50) + '...' 
                   : post.content;
                 const hasImage = post.media && post.media.media_type === 'image';
+                
+                // Parse link previews
+                let linkPreview: { url?: string; title?: string; description?: string; image?: string; siteName?: string } | null = null;
+                if (post.link_previews) {
+                  try {
+                    const parsed = typeof post.link_previews === 'string' ? JSON.parse(post.link_previews) : post.link_previews;
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      linkPreview = parsed[0];
+                    }
+                  } catch { /* ignore parse errors */ }
+                }
+                
+                // Use link preview image as thumbnail fallback
+                const thumbnailUrl = hasImage ? post.media!.media_url : linkPreview?.image || null;
                 
                 return (
                   <Link
@@ -145,11 +156,11 @@ export function TrendingSidebar() {
                         {index + 1}
                       </span>
                       
-                      {/* Thumbnail */}
-                      {hasImage && (
+                      {/* Thumbnail from media or link preview */}
+                      {thumbnailUrl && (
                         <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-muted">
                           <img
-                            src={post.media!.media_url}
+                            src={thumbnailUrl}
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             loading="lazy"
@@ -158,9 +169,23 @@ export function TrendingSidebar() {
                       )}
                       
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm line-clamp-2 group-hover:text-primary transition-colors">
-                          {contentPreview}
-                        </p>
+                        {/* Show link preview title if available, otherwise content */}
+                        {linkPreview?.title ? (
+                          <>
+                            <p className="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">
+                              {linkPreview.title}
+                            </p>
+                            {linkPreview.siteName && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {linkPreview.siteName}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                            {contentPreview}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                           <span className="truncate max-w-[80px]">@{post.profile.username}</span>
                           <span>•</span>

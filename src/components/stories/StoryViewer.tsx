@@ -356,7 +356,7 @@ export function StoryViewer({
     showViewers && isOwnStory && currentStory ? currentStory.id : ''
   );
   
-  // Audio playback for story music (only for image stories - videos use original audio)
+  // Audio playback for voiceover/music (for image and text stories; videos use original audio)
   useEffect(() => {
     // Stop previous audio
     if (audioRef.current) {
@@ -364,11 +364,11 @@ export function StoryViewer({
       audioRef.current = null;
     }
     
-    // Play background music only for image stories (not videos - they have original audio)
-    if (currentStory?.audio_url && currentStory?.media_type === 'image') {
+    // Play audio for image and text stories (not videos - they have original audio)
+    if (currentStory?.audio_url && currentStory?.media_type !== 'video') {
       const audio = new Audio(currentStory.audio_url);
-      audio.loop = true;
-      audio.volume = 0.5;
+      audio.loop = false;
+      audio.volume = 0.8;
       audio.play().catch(console.error);
       audioRef.current = audio;
     }
@@ -421,10 +421,11 @@ export function StoryViewer({
   // Calculate story duration based on media type
   const getStoryDuration = useCallback(() => {
     if (currentStory?.media_type === 'video' && videoDuration) {
-      // Use actual video duration, capped at max
       return Math.min(videoDuration * 1000, MAX_STORY_DURATION);
     }
-    // Default duration for images
+    if (currentStory?.media_type === 'text') {
+      return 7000; // 7 seconds for text stories
+    }
     return IMAGE_STORY_DURATION;
   }, [currentStory?.media_type, videoDuration]);
   
@@ -578,9 +579,14 @@ export function StoryViewer({
     if (!currentStory || !newHighlightName.trim()) return;
     
     try {
+      const coverUrl = currentStory.media_type === 'text'
+        ? `text:${currentStory.id}`
+        : currentStory.media_type === 'video'
+          ? (currentStory.thumbnail_url || currentStory.media_url)
+          : currentStory.media_url;
       const highlight = await createHighlight.mutateAsync({
         title: newHighlightName.trim(),
-        coverUrl: currentStory.media_url,
+        coverUrl,
       });
       
       await addToHighlight.mutateAsync({
@@ -948,7 +954,7 @@ export function StoryViewer({
           {currentStory.media_type === 'video' ? (
             <video
               ref={videoRef}
-              src={currentStory.media_url}
+              src={currentStory.media_url || undefined}
               className="w-full h-full object-contain"
               autoPlay
               muted={isMuted}
@@ -961,12 +967,11 @@ export function StoryViewer({
               }}
               onPlaying={() => {
                 setIsVideoBuffering(false);
-                setIsVideoReady(true); // Video is actually playing now
+                setIsVideoReady(true);
               }}
               onCanPlayThrough={() => setIsVideoBuffering(false)}
               onCanPlay={(e) => {
                 setIsVideoBuffering(false);
-                // Set duration when video can start playing (faster than onLoadedMetadata)
                 const video = e.currentTarget;
                 if (!videoDuration && video.duration && isFinite(video.duration) && video.duration > 0) {
                   setVideoDuration(video.duration);
@@ -985,14 +990,34 @@ export function StoryViewer({
               onError={() => {
                 setIsVideoBuffering(false);
                 setIsVideoReady(false);
-                // If video fails to load, skip to next story
                 console.error('Video failed to load');
                 goToNextStory();
               }}
             />
+          ) : currentStory.media_type === 'text' ? (
+            <div 
+              className="w-full h-full relative"
+              style={{ background: currentStory.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+            >
+              <p
+                className="absolute text-center break-words max-w-[85%]"
+                style={{
+                  fontFamily: currentStory.font_family || 'system-ui, sans-serif',
+                  color: currentStory.text_color || '#ffffff',
+                  fontSize: `${currentStory.text_overlay?.fontSize || 24}px`,
+                  lineHeight: 1.4,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                  left: `${currentStory.text_overlay?.position?.x || 50}%`,
+                  top: `${currentStory.text_overlay?.position?.y || 50}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                {currentStory.text_content}
+              </p>
+            </div>
           ) : (
             <img
-              src={currentStory.media_url}
+              src={currentStory.media_url || ''}
               alt=""
               className="w-full h-full object-contain"
               style={{ filter: currentStory.filter || undefined }}
@@ -1278,26 +1303,57 @@ export function StoryViewer({
                 <p className="text-sm text-muted-foreground">
                   {language === 'ar' ? 'المختصرات الموجودة' : 'Existing Highlights'}
                 </p>
-                {highlights.map((highlight) => (
-                  <button
-                    key={highlight.id}
-                    onClick={() => handleAddToHighlight(highlight.id)}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
-                  >
-                    {highlight.cover_url || highlight.items?.[0]?.story?.media_url ? (
-                      <img
-                        src={highlight.cover_url || highlight.items?.[0]?.story?.media_url}
-                        alt=""
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <Bookmark className="h-4 w-4" />
-                      </div>
-                    )}
-                    <span className="font-medium">{highlight.title}</span>
-                  </button>
-                ))}
+                {highlights.map((highlight) => {
+                  // Resolve text story cover
+                  const isTextCover = highlight.cover_url?.startsWith('text:');
+                  const textCoverStory = isTextCover
+                    ? highlight.items?.find(item => item.story_id === highlight.cover_url!.replace('text:', ''))?.story
+                    : null;
+                  const firstStory = highlight.items?.[0]?.story;
+                  const fallbackTextStory = !highlight.cover_url && firstStory?.media_type === 'text' ? firstStory : null;
+                  const coverTextStory = textCoverStory || fallbackTextStory;
+                  const coverImage = isTextCover
+                    ? null
+                    : highlight.cover_url || (firstStory?.media_type === 'video'
+                      ? (firstStory.thumbnail_url || firstStory.media_url)
+                      : firstStory?.media_type === 'text' ? null : firstStory?.media_url);
+
+                  return (
+                    <button
+                      key={highlight.id}
+                      onClick={() => handleAddToHighlight(highlight.id)}
+                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      {coverTextStory ? (
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0"
+                          style={{ background: coverTextStory.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                        >
+                          <span
+                            className="text-[6px] leading-tight text-center px-0.5 line-clamp-2 break-words"
+                            style={{
+                              color: coverTextStory.text_color || '#ffffff',
+                              fontFamily: coverTextStory.font_family || 'system-ui',
+                            }}
+                          >
+                            {coverTextStory.text_content}
+                          </span>
+                        </div>
+                      ) : coverImage ? (
+                        <img
+                          src={coverImage}
+                          alt=""
+                          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <Bookmark className="h-4 w-4" />
+                        </div>
+                      )}
+                      <span className="font-medium">{highlight.title}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             

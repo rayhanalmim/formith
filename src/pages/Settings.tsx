@@ -310,7 +310,7 @@ export default function SettingsPage() {
                   {/* Push Notification Toggle Component */}
                   <PushNotificationToggle />
 
-                  <div className="flex items-center justify-between py-3 border-b">
+                  {/* <div className="flex items-center justify-between py-3 border-b">
                     <div>
                       <p className="font-medium">
                         {language === 'ar' ? 'إشعارات البريد الإلكتروني' : 'Email Notifications'}
@@ -323,7 +323,7 @@ export default function SettingsPage() {
                       checked={emailNotifications}
                       onCheckedChange={setEmailNotifications}
                     />
-                  </div>
+                  </div> */}
 
                   <div className="flex items-center justify-between py-3 border-b">
                     <div>

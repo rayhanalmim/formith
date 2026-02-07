@@ -59,6 +59,7 @@ export interface DirectMessage {
 
 export function useConversations() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { playMessageSound } = useNotificationSound();
   const hasPlayedInitialRef = useRef(false);
 
@@ -86,6 +87,14 @@ export function useConversations() {
       }
     }
   }, [query.data]);
+
+  // Listen for conversation list refresh (e.g. when other user changes messaging privacy)
+  useEffect(() => {
+    const unsub = socketClient.onDMRefreshConversations(() => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+    return () => { unsub(); };
+  }, [queryClient]);
 
   // Play sound for incoming messages (global listeners handle data updates)
   useEffect(() => {

@@ -14,6 +14,17 @@ export interface OnlineUser {
 let globalOnlineUserIds: Set<string> = new Set();
 let subscriberCount = 0;
 let presenceSubscribed = false;
+let presenceInitialized = false;
+
+// Exported utility: check if a user is online based on socket presence (source of truth)
+export function isUserOnlineGlobal(userId: string): boolean {
+  return globalOnlineUserIds.has(userId);
+}
+
+// Whether we've received the initial presence list from the server
+export function isPresenceReady(): boolean {
+  return presenceInitialized;
+}
 
 export function useOnlinePresence() {
   const { user } = useAuth();
@@ -35,6 +46,13 @@ export function useOnlinePresence() {
     socketClient.subscribeToPresence();
     presenceSubscribed = true;
 
+    // Listen for the initial full list of online users
+    const unsubInitial = socketClient.onPresenceInitial((event) => {
+      globalOnlineUserIds = new Set(event.onlineUserIds);
+      presenceInitialized = true;
+      setOnlineUserIds(new Set(globalOnlineUserIds));
+    });
+
     // Listen for user online events
     const unsubOnline = socketClient.onUserOnline((event) => {
       globalOnlineUserIds.add(event.userId);
@@ -54,10 +72,12 @@ export function useOnlinePresence() {
 
     return () => {
       subscriberCount--;
+      unsubInitial();
       unsubOnline();
       unsubOffline();
       if (subscriberCount === 0) {
         presenceSubscribed = false;
+        presenceInitialized = false;
         globalOnlineUserIds = new Set();
       }
     };

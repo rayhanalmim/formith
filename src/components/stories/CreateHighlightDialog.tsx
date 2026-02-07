@@ -66,10 +66,18 @@ export function CreateHighlightDialog({ open, onOpenChange }: CreateHighlightDia
     setIsCreating(true);
     
     try {
-      // Create the highlight
+      // Create the highlight with proper cover URL
+      const firstSelectedStory = stories?.find(s => selectedStoryIds.has(s.id));
+      const coverUrl = firstSelectedStory
+        ? firstSelectedStory.media_type === 'text'
+          ? `text:${firstSelectedStory.id}`
+          : firstSelectedStory.media_type === 'video'
+            ? (firstSelectedStory.thumbnail_url || firstSelectedStory.media_url)
+            : firstSelectedStory.media_url
+        : undefined;
       const highlight = await createHighlight.mutateAsync({
         title: title.trim(),
-        coverUrl: stories?.find(s => selectedStoryIds.has(s.id))?.media_url,
+        coverUrl,
       });
       
       // Add selected stories to the highlight
@@ -142,7 +150,7 @@ export function CreateHighlightDialog({ open, onOpenChange }: CreateHighlightDia
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 overflow-y-auto flex-1 pb-2">
+              <div className="grid grid-cols-3 gap-2 overflow-y-auto flex-1 pb-2 auto-rows-fr">
                 {stories.map((story) => {
                   const isSelected = selectedStoryIds.has(story.id);
                   const timeAgo = formatDistanceToNow(new Date(story.created_at), {
@@ -155,7 +163,7 @@ export function CreateHighlightDialog({ open, onOpenChange }: CreateHighlightDia
                       key={story.id}
                       onClick={() => toggleStory(story.id)}
                       className={cn(
-                        "relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all",
+                        "relative aspect-square rounded-lg overflow-hidden border-2 transition-all",
                         isSelected ? "border-primary ring-2 ring-primary/30" : "border-transparent hover:border-muted"
                       )}
                     >
@@ -165,6 +173,21 @@ export function CreateHighlightDialog({ open, onOpenChange }: CreateHighlightDia
                           className="w-full h-full object-cover"
                           muted
                         />
+                      ) : story.media_type === 'text' ? (
+                        <div
+                          className="w-full h-full flex items-center justify-center"
+                          style={{ background: story.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                        >
+                          <span
+                            className="text-[10px] leading-tight text-center px-1 line-clamp-4 break-words"
+                            style={{
+                              color: story.text_color || '#ffffff',
+                              fontFamily: story.font_family || 'system-ui',
+                            }}
+                          >
+                            {story.text_content}
+                          </span>
+                        </div>
                       ) : (
                         <img
                           src={story.media_url}

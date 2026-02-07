@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -61,15 +62,17 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(highlight.title);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [displayTitle, setDisplayTitle] = useState(highlight.title);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [items, setItems] = useState(highlight.items || []);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   
-  const items = highlight.items || [];
   const currentItem = items[currentIndex];
   const currentStory = currentItem?.story;
   const isVideoStory = currentStory?.media_type === 'video';
@@ -199,26 +202,51 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
   const handleRemoveStory = async () => {
     if (!currentItem) return;
     
-    try {
-      await removeFromHighlight.mutateAsync({
-        highlightId: highlight.id,
-        storyId: currentItem.story_id,
-      });
-      
-      // If this was the last story, close or delete the highlight
-      if (items.length === 1) {
+    const removedIndex = currentIndex;
+    const removedStoryId = currentItem.story_id;
+    const remainingItems = items.filter((_, idx) => idx !== removedIndex);
+    
+    // Instantly update local items state for immediate UI feedback
+    if (remainingItems.length === 0) {
+      // Last story — close immediately then delete
+      onClose();
+      try {
+        await removeFromHighlight.mutateAsync({ highlightId: highlight.id, storyId: removedStoryId });
         await deleteHighlight.mutateAsync(highlight.id);
-        onClose();
-      } else {
-        // Move to next or previous story
-        if (currentIndex === items.length - 1) {
-          setCurrentIndex(prev => prev - 1);
-        }
+      } catch (error) {
+        console.error('Error removing last story:', error);
       }
+      return;
+    }
+    
+    // Update items and adjust index immediately
+    setItems(remainingItems);
+    if (removedIndex >= remainingItems.length) {
+      setCurrentIndex(remainingItems.length - 1);
+    }
+    setProgress(0);
+    
+    toast({
+      title: language === 'ar' ? 'تمت الإزالة' : 'Removed',
+    });
+    
+    // Fire server mutation in background
+    try {
+      await removeFromHighlight.mutateAsync({ highlightId: highlight.id, storyId: removedStoryId });
       
-      toast({
-        title: language === 'ar' ? 'تمت الإزالة' : 'Removed',
-      });
+      // Auto-set next available story as cover
+      const nextItem = remainingItems.find(item => item.story);
+      if (nextItem?.story) {
+        const nextCover = nextItem.story.media_type === 'video'
+          ? (nextItem.story.thumbnail_url || nextItem.story.media_url)
+          : nextItem.story.media_type === 'text'
+            ? `text:${nextItem.story.id}`
+            : nextItem.story.media_url;
+        await updateHighlight.mutateAsync({
+          highlightId: highlight.id,
+          coverUrl: nextCover,
+        });
+      }
     } catch (error) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
@@ -230,7 +258,7 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
   
   const handleSaveTitle = async () => {
     if (!editedTitle.trim()) {
-      setEditedTitle(highlight.title);
+      setEditedTitle(displayTitle);
       setIsEditingTitle(false);
       return;
     }
@@ -240,6 +268,7 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
         highlightId: highlight.id,
         title: editedTitle.trim(),
       });
+      setDisplayTitle(editedTitle.trim());
       setIsEditingTitle(false);
       toast({
         title: language === 'ar' ? 'تم الحفظ' : 'Saved',
@@ -253,13 +282,16 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
     }
   };
   
-  const handleSetCover = async (coverUrl: string) => {
+  const handleConfirmCover = async () => {
+    if (!selectedCoverUrl) return;
     try {
+      // Save the cover URL as-is (including text:storyId for text stories)
       await updateHighlight.mutateAsync({
         highlightId: highlight.id,
-        coverUrl,
+        coverUrl: selectedCoverUrl,
       });
       setCoverPickerOpen(false);
+      setSelectedCoverUrl(null);
       setIsPaused(false);
       toast({
         title: language === 'ar' ? 'تم تغيير الغلاف' : 'Cover changed',
@@ -350,7 +382,7 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3 py-1 bg-black/50 rounded-full">
-                <span className="text-white font-semibold text-sm">{highlight.title}</span>
+                <span className="text-white font-semibold text-sm">{displayTitle}</span>
                 {currentStory?.audio_url && (
                   <Music className="h-3.5 w-3.5 text-white/80" />
                 )}
@@ -463,6 +495,27 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
               onWaiting={() => setIsVideoReady(false)}
               onLoadStart={() => setIsVideoReady(false)}
             />
+          ) : currentStory.media_type === 'text' ? (
+            <div 
+              className="w-full h-full relative flex items-center justify-center"
+              style={{ background: currentStory.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+            >
+              <p
+                className="absolute text-center break-words max-w-[85%]"
+                style={{
+                  fontFamily: currentStory.font_family || 'system-ui, sans-serif',
+                  color: currentStory.text_color || '#ffffff',
+                  fontSize: `${currentStory.text_overlay?.fontSize || 24}px`,
+                  lineHeight: 1.4,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                  left: `${currentStory.text_overlay?.position?.x || 50}%`,
+                  top: `${currentStory.text_overlay?.position?.y || 50}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                {currentStory.text_content}
+              </p>
+            </div>
           ) : (
             <img
               src={currentStory.media_url}
@@ -594,21 +647,24 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
                 : 'Select a story to use as the highlight cover'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto py-4">
-            {items.map((item, idx) => {
+          <div className="grid grid-cols-3 gap-2 max-h-[50vh] overflow-y-auto py-2 px-1 auto-rows-fr">
+            {items.map((item) => {
               const story = item.story;
               if (!story) return null;
-              const thumbUrl = story.media_type === 'video' 
+              // For cover URL: use thumbnail/media for video/image, text:id for text
+              const coverUrl = story.media_type === 'video' 
                 ? (story.thumbnail_url || story.media_url) 
-                : story.media_url;
-              const isSelected = highlight.cover_url === thumbUrl;
+                : story.media_type === 'text'
+                  ? `text:${story.id}`
+                  : story.media_url;
+              const isSelected = selectedCoverUrl === coverUrl;
               
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleSetCover(thumbUrl)}
+                  onClick={() => setSelectedCoverUrl(coverUrl)}
                   className={cn(
-                    "relative aspect-[9/16] rounded-lg overflow-hidden border-2 transition-all",
+                    "relative aspect-square rounded-lg overflow-hidden border-2 transition-all",
                     isSelected ? "border-primary ring-2 ring-primary" : "border-transparent hover:border-muted-foreground/50"
                   )}
                 >
@@ -620,6 +676,21 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
                       playsInline
                       preload="metadata"
                     />
+                  ) : story.media_type === 'text' ? (
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{ background: story.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                    >
+                      <span
+                        className="text-[10px] leading-tight text-center px-1 line-clamp-4 break-words"
+                        style={{
+                          color: story.text_color || '#ffffff',
+                          fontFamily: story.font_family || 'system-ui',
+                        }}
+                      >
+                        {story.text_content}
+                      </span>
+                    </div>
                   ) : (
                     <img
                       src={story.media_url}
@@ -637,9 +708,16 @@ export function HighlightViewer({ highlight, isOwnProfile, onClose }: HighlightV
             })}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setSelectedCoverUrl(null); }}>
               {language === 'ar' ? 'إلغاء' : 'Cancel'}
             </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmCover(); }}
+              disabled={!selectedCoverUrl}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {language === 'ar' ? 'تأكيد' : 'Confirm'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

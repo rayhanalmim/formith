@@ -41,7 +41,7 @@ import { getAvatarUrl } from '@/lib/default-images';
 
 export function Header() {
   const { language, setLanguage, t } = useLanguage();
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { data: profile } = useCurrentUserProfile();
   const { data: unreadCount } = useUnreadMessageCount();
   const { data: isAdmin } = useIsAdmin();
@@ -156,7 +156,7 @@ export function Header() {
               <Search className="h-5 w-5" />
             </Button>
 
-            {user ? (
+            {authLoading ? null : user ? (
               <>
                 {/* New Post - Desktop Only */}
                 <Button 
@@ -223,7 +223,9 @@ export function Header() {
             </DropdownMenu>
 
             {/* Profile / Auth */}
-            {user ? (
+            {authLoading ? (
+              <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">

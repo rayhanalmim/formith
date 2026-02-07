@@ -6,6 +6,7 @@ import { useUserStatus } from '@/hooks/useUserStatus';
 import { useCurrentUserProfile, useFollowers, useFollowing } from '@/hooks/useProfile';
 import { useConversationTypingIndicators } from '@/hooks/useConversationTypingIndicators';
 import { useOnlinePresence } from '@/hooks/useOnlinePresence';
+import { useRealtimePrivacySettings } from '@/hooks/useSettings';
 import { useMessages as useMessagesContext } from '@/contexts/MessagesContext';
 import { isEncryptedMessage } from '@/lib/encryption';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -66,6 +67,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   const pinConversation = usePinConversation();
   const startConversation = useStartConversation();
   const { onlineUsers, isUserOnline } = useOnlinePresence();
+  useRealtimePrivacySettings();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [startingChatWith, setStartingChatWith] = useState<string | null>(null);

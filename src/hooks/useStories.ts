@@ -79,15 +79,23 @@ export function useCreateStory() {
       filter,
       audioUrl,
       reactionEmoji,
+      textContent,
+      bgGradient,
+      fontFamily,
+      textColor,
     }: {
-      mediaUrl: string;
-      mediaType: 'image' | 'video';
+      mediaUrl?: string;
+      mediaType: 'image' | 'video' | 'text';
       thumbnailUrl?: string;
       textOverlay?: TextOverlay | null;
       stickers?: Sticker[];
       filter?: string | null;
       audioUrl?: string | null;
       reactionEmoji?: ReactionEmoji;
+      textContent?: string;
+      bgGradient?: string;
+      fontFamily?: string;
+      textColor?: string;
     }) => {
       if (!user) throw new Error('Must be logged in to create a story');
       
@@ -101,6 +109,10 @@ export function useCreateStory() {
         filter: filter || undefined,
         audioUrl: audioUrl || undefined,
         reactionEmoji: reactionEmoji as any,
+        textContent,
+        bgGradient,
+        fontFamily,
+        textColor,
       });
       
       if (!response.success) throw new Error('Failed to create story');

@@ -50,7 +50,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { BadgeCheck, Send, Loader2, ChevronLeft, Check, CheckCheck, FileText, Download, MoreVertical, Trash2, X, Forward, CheckSquare, Reply, Pencil, EyeOff, Video, Lock, Phone, VideoIcon, Info } from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/lib/default-images';
@@ -93,7 +93,7 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
   const editMessage = useEditMessage();
   const markAsRead = useMarkMessagesAsRead();
   const { typingUsers, handleTyping, stopTyping, isOtherUserTyping } = useTypingIndicator(conversation?.id || null);
-  const { data: otherUserStatus = 'offline' } = useSingleUserStatus(conversation?.other_user.user_id);
+  const { data: otherUserStatus = 'offline', lastSeenAt } = useSingleUserStatus(conversation?.other_user.user_id);
   
   const { sendEncrypted, isPending: isEncryptingSend, encryptionProgress } = useEncryptedSendMessage({
     conversation,
@@ -609,10 +609,14 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {otherUserStatus === 'online' 
-                    ? (language === 'ar' ? 'متصل' : 'Active now') 
+                    ? (language === 'ar' ? 'نشط الآن' : 'Active now') 
                     : otherUserStatus === 'busy'
                       ? (language === 'ar' ? 'مشغول' : 'Busy')
-                      : (language === 'ar' ? 'غير متصل' : 'Offline')
+                      : lastSeenAt
+                        ? (language === 'ar' 
+                          ? `نشط ${formatDistanceToNow(new Date(lastSeenAt), { addSuffix: true, locale: ar })}` 
+                          : `Active ${formatDistanceToNow(new Date(lastSeenAt), { addSuffix: true, locale: enUS })}`)
+                        : (language === 'ar' ? 'غير متصل' : 'Offline')
                   }
                 </p>
               </div>

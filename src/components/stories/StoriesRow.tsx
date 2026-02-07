@@ -153,14 +153,29 @@ export function StoriesRow() {
                   {currentUserStory.stories[0] && (
                     currentUserStory.stories[0].media_type === 'video' ? (
                       <video
-                        src={currentUserStory.stories[0].media_url}
+                        src={currentUserStory.stories[0].media_url || ''}
                         className="w-14 h-14 rounded-full object-cover"
                         muted
                         playsInline
                       />
+                    ) : currentUserStory.stories[0].media_type === 'text' ? (
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
+                        style={{ background: currentUserStory.stories[0].bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                      >
+                        <span
+                          className="text-[8px] leading-tight text-center px-1 line-clamp-3 break-words"
+                          style={{
+                            color: currentUserStory.stories[0].text_color || '#ffffff',
+                            fontFamily: currentUserStory.stories[0].font_family || 'system-ui',
+                          }}
+                        >
+                          {currentUserStory.stories[0].text_content}
+                        </span>
+                      </div>
                     ) : (
                       <img
-                        src={currentUserStory.stories[0].thumbnail_url || currentUserStory.stories[0].media_url}
+                        src={currentUserStory.stories[0].thumbnail_url || currentUserStory.stories[0].media_url || ''}
                         alt=""
                         className="w-14 h-14 rounded-full object-cover"
                       />
@@ -243,14 +258,29 @@ function StoryAvatar({ userStory, onClick, language }: StoryAvatarProps) {
           {latestStory ? (
             latestStory.media_type === 'video' ? (
               <video
-                src={latestStory.media_url}
+                src={latestStory.media_url || ''}
                 className="w-14 h-14 rounded-full object-cover"
                 muted
                 playsInline
               />
+            ) : latestStory.media_type === 'text' ? (
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
+                style={{ background: latestStory.bg_gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+              >
+                <span
+                  className="text-[8px] leading-tight text-center px-1 line-clamp-3 break-words"
+                  style={{
+                    color: latestStory.text_color || '#ffffff',
+                    fontFamily: latestStory.font_family || 'system-ui',
+                  }}
+                >
+                  {latestStory.text_content}
+                </span>
+              </div>
             ) : (
               <img
-                src={latestStory.thumbnail_url || latestStory.media_url}
+                src={latestStory.thumbnail_url || latestStory.media_url || ''}
                 alt={displayName || ''}
                 className="w-14 h-14 rounded-full object-cover"
               />

@@ -9,7 +9,7 @@ import { MessagesSheet } from '@/components/messages/MessagesSheet';
 
 export function BottomNav() {
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { data: profile } = useCurrentUserProfile();
   const location = useLocation();
   const { isOpen: messagesOpen, openMessages, closeMessages } = useMessagesContext();
@@ -45,11 +45,13 @@ export function BottomNav() {
       requiresAuth: true,
     },
     {
-      to: user && profile?.username ? `/profile/${profile.username}` : '/auth',
-      icon: user ? User : LogIn,
-      label: user 
-        ? (language === 'ar' ? 'الملف' : 'Profile')
-        : (language === 'ar' ? 'دخول' : 'Login'),
+      to: authLoading ? '#' : (user && profile?.username ? `/profile/${profile.username}` : '/auth'),
+      icon: authLoading ? User : (user ? User : LogIn),
+      label: authLoading 
+        ? '...'
+        : user 
+          ? (language === 'ar' ? 'الملف' : 'Profile')
+          : (language === 'ar' ? 'دخول' : 'Login'),
       requiresAuth: false,
     },
   ];

@@ -258,12 +258,17 @@ class SocketClient {
   }
 
   // Presence event listeners
+  onPresenceInitial(callback: (event: { onlineUserIds: string[] }) => void): () => void {
+    this.on('presence:initial', callback);
+    return () => this.off('presence:initial', callback);
+  }
+
   onUserOnline(callback: (event: { userId: string }) => void): () => void {
     this.on('user:online', callback);
     return () => this.off('user:online', callback);
   }
 
-  onUserOffline(callback: (event: { userId: string }) => void): () => void {
+  onUserOffline(callback: (event: { userId: string; lastSeenAt?: string }) => void): () => void {
     this.on('user:offline', callback);
     return () => this.off('user:offline', callback);
   }
@@ -323,6 +328,16 @@ class SocketClient {
   onCounterChange(callback: (event: CounterEvent) => void): () => void {
     this.on('counter:change', callback);
     return () => this.off('counter:change', callback);
+  }
+
+  onDMRefreshConversations(callback: () => void): () => void {
+    this.on('dm:refresh-conversations', callback);
+    return () => this.off('dm:refresh-conversations', callback);
+  }
+
+  onPrivacySettingsChanged(callback: (event: { userId: string; profile_visibility?: string; allow_messages_from?: string }) => void): () => void {
+    this.on('settings:privacy-changed', callback);
+    return () => this.off('settings:privacy-changed', callback);
   }
 }
 

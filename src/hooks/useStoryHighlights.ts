@@ -21,6 +21,11 @@ export interface StoryHighlightItem {
     filter: string | null;
     audio_url: string | null;
     created_at: string;
+    text_content?: string | null;
+    bg_gradient?: string | null;
+    font_family?: string | null;
+    text_color?: string | null;
+    reaction_emoji?: any;
   };
 }
 

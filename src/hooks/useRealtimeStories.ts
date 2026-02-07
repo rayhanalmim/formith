@@ -20,6 +20,9 @@ export function useRealtimeStories() {
       // Invalidate stories query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       
+      // Also invalidate highlights so other users see highlight changes in realtime
+      queryClient.invalidateQueries({ queryKey: ['story-highlights'] });
+      
       // If it's a view event, refresh viewers for that story
       if (event.type === 'view' && event.storyId) {
         queryClient.invalidateQueries({ 
