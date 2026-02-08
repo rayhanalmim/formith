@@ -230,7 +230,7 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
     const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      const threshold = 24; // px tolerance for near-bottom
+      const threshold = 150; // px tolerance for near-bottom (enough to absorb new message/typing indicator height)
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
       userScrolledUpRef.current = !atBottom;
 
@@ -299,6 +299,27 @@ export function ChatView({ conversation, onBack, onClose }: ChatViewProps) {
     mo.observe(el, { childList: true, subtree: true });
     return () => mo.disconnect();
   }, [scrollToBottom]);
+
+  // Auto-scroll when new messages arrive (length changes)
+  const prevMessagesLenRef = useRef(0);
+  useEffect(() => {
+    const len = messages?.length || 0;
+    if (len > prevMessagesLenRef.current && prevMessagesLenRef.current > 0) {
+      // New message arrived — scroll to bottom unless user deliberately scrolled up
+      if (!userScrolledUpRef.current && !isLoadingMoreRef.current && !loadMoreCooldownRef.current) {
+        requestAnimationFrame(() => scrollToBottom());
+        setTimeout(() => scrollToBottom(), 50);
+      }
+    }
+    prevMessagesLenRef.current = len;
+  }, [messages?.length, scrollToBottom]);
+
+  // Auto-scroll when typing indicator appears
+  useEffect(() => {
+    if (isOtherUserTyping && !userScrolledUpRef.current) {
+      requestAnimationFrame(() => scrollToBottom());
+    }
+  }, [isOtherUserTyping, scrollToBottom]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
