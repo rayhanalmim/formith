@@ -222,6 +222,14 @@ export function MentionInput({
     }, 0);
   };
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [value]);
+
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -250,7 +258,7 @@ export function MentionInput({
         onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
-        className={cn(className)}
+        className={cn('overflow-hidden', className)}
         style={{ minHeight }}
         data-create-post-input={dataCreatePostInput ? 'true' : undefined}
       />
