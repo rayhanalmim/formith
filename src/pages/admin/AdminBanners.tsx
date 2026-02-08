@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAllBanners, useCreateBanner, useUpdateBanner, useDeleteBanner, Banner } from '@/hooks/useBanners';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Pencil, Trash2, ExternalLink, Loader2, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Loader2, Image, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 
@@ -53,6 +53,10 @@ export default function AdminBanners() {
   const [linkUrl, setLinkUrl] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [sortOrder, setSortOrder] = useState(0);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
     setTitle('');
@@ -61,6 +65,8 @@ export default function AdminBanners() {
     setLinkUrl('');
     setIsActive(true);
     setSortOrder(0);
+    setImageFile(null);
+    setImagePreview('');
   };
 
   const openEditDialog = (banner: Banner) => {
@@ -68,16 +74,70 @@ export default function AdminBanners() {
     setTitle(banner.title);
     setTitleAr(banner.title_ar || '');
     setImageUrl(banner.image_url);
+    setImagePreview(banner.image_url);
     setLinkUrl(banner.link_url);
     setIsActive(banner.is_active);
     setSortOrder(banner.sort_order);
+    setImageFile(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return;
+    }
+
+    setImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setImageUrl('');
+  };
+
+  const uploadBannerImage = async (): Promise<string> => {
+    if (!imageFile) return imageUrl;
+
+    setIsUploading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const formData = new FormData();
+      formData.append('file', imageFile, imageFile.name);
+      formData.append('folder', 'banners');
+
+      const response = await fetch(`${API_BASE_URL}/storage/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Upload failed');
+
+      return result.data.url;
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleCreate = async () => {
+    const uploadedUrl = await uploadBannerImage();
     await createBanner.mutateAsync({
       title,
       title_ar: titleAr || null,
-      image_url: imageUrl,
+      image_url: uploadedUrl,
       link_url: linkUrl,
       is_active: isActive,
       sort_order: sortOrder,
@@ -88,11 +148,12 @@ export default function AdminBanners() {
 
   const handleUpdate = async () => {
     if (!editingBanner) return;
+    const uploadedUrl = await uploadBannerImage();
     await updateBanner.mutateAsync({
       id: editingBanner.id,
       title,
       title_ar: titleAr || null,
-      image_url: imageUrl,
+      image_url: uploadedUrl,
       link_url: linkUrl,
       is_active: isActive,
       sort_order: sortOrder,
@@ -280,27 +341,45 @@ export default function AdminBanners() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="imageUrl">
-                {language === 'ar' ? 'رابط الصورة' : 'Image URL'}
+              <Label>
+                {language === 'ar' ? 'صورة البانر' : 'Banner Image'}
               </Label>
-              <Input
-                id="imageUrl"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/banner.jpg"
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleFileSelect}
+                className="hidden"
               />
-              {imageUrl && (
-                <div className="mt-2 rounded-lg overflow-hidden bg-muted">
-                  <img
-                    src={imageUrl}
-                    alt="Preview"
-                    className="w-full h-32 object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+              >
+                {imagePreview ? (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                      <p className="text-white text-sm font-medium">
+                        {language === 'ar' ? 'تغيير الصورة' : 'Change Image'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-4">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'ar' ? 'انقر لرفع صورة البانر' : 'Click to upload banner image'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      JPG, PNG, WebP, GIF (max 10MB)
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -354,7 +433,7 @@ export default function AdminBanners() {
             </Button>
             <Button
               onClick={editingBanner ? handleUpdate : handleCreate}
-              disabled={!title || !imageUrl || !linkUrl || createBanner.isPending || updateBanner.isPending}
+              disabled={!title || (!imageUrl && !imageFile) || !linkUrl || createBanner.isPending || updateBanner.isPending || isUploading}
             >
               {(createBanner.isPending || updateBanner.isPending) && (
                 <Loader2 className="h-4 w-4 animate-spin me-2" />

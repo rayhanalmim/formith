@@ -206,6 +206,25 @@ export function useUpdateUserUsername() {
   });
 }
 
+// Toggle user verified badge
+export function useToggleUserVerified() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ userId, isVerified }: { userId: string; isVerified: boolean }) => {
+      const response = await api.adminToggleVerified(userId, isVerified);
+      if (!response.success) {
+        throw new Error('Failed to toggle verified status');
+      }
+      return { userId, isVerified };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}
+
 // Approve/Hide post
 export function useModeratePost() {
   const queryClient = useQueryClient();

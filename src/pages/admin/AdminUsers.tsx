@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAdminUsers, useUpdateUserRole, useToggleUserBan, useUpdateUserUsername, useDeleteUser } from '@/hooks/useAdmin';
+import { useAdminUsers, useUpdateUserRole, useToggleUserBan, useUpdateUserUsername, useDeleteUser, useToggleUserVerified } from '@/hooks/useAdmin';
 import { getAvatarUrl } from '@/lib/default-images';
 import {
   Table,
@@ -64,6 +65,7 @@ export default function AdminUsers() {
   const toggleBan = useToggleUserBan();
   const updateUsername = useUpdateUserUsername();
   const deleteUser = useDeleteUser();
+  const toggleVerified = useToggleUserVerified();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [banDialogOpen, setBanDialogOpen] = useState(false);
@@ -197,6 +199,27 @@ export default function AdminUsers() {
       });
       
       setBanDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleToggleVerified = async (user: any) => {
+    try {
+      await toggleVerified.mutateAsync({
+        userId: user.user_id,
+        isVerified: !user.is_verified,
+      });
+      toast({
+        title: language === 'ar' ? 'تم التحديث' : 'Updated',
+        description: user.is_verified
+          ? (language === 'ar' ? 'تم إزالة التوثيق' : 'Verification removed')
+          : (language === 'ar' ? 'تم توثيق المستخدم' : 'User verified'),
+      });
     } catch (error: any) {
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
@@ -505,6 +528,18 @@ export default function AdminUsers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant={user.is_verified ? 'default' : 'outline'}
+                          size="sm"
+                          className={user.is_verified ? 'gap-1 bg-blue-600 hover:bg-blue-700' : 'gap-1'}
+                          onClick={() => handleToggleVerified(user)}
+                          disabled={toggleVerified.isPending}
+                        >
+                          <BadgeCheck className="h-3.5 w-3.5" />
+                          {user.is_verified 
+                            ? (language === 'ar' ? 'موثق' : 'Verified')
+                            : (language === 'ar' ? 'توثيق' : 'Verify')}
+                        </Button>
                         <Button
                           variant={user.is_banned ? 'outline' : 'destructive'}
                           size="sm"

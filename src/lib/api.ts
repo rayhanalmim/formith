@@ -1298,6 +1298,13 @@ class ApiClient {
     });
   }
 
+  async adminToggleVerified(userId: string, isVerified: boolean): Promise<ApiResponse<{ userId: string; isVerified: boolean }>> {
+    return this.request<ApiResponse<{ userId: string; isVerified: boolean }>>(`/admin/users/${userId}/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ isVerified }),
+    });
+  }
+
   async moderatePost(postId: string, action: 'approve' | 'hide' | 'pin' | 'unpin' | 'lock' | 'unlock'): Promise<ApiResponse<{ postId: string; action: string }>> {
     return this.request<ApiResponse<{ postId: string; action: string }>>(`/admin/posts/${postId}/moderate`, {
       method: 'POST',
