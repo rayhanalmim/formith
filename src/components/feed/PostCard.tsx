@@ -56,6 +56,13 @@ interface PostCardProps {
   isNew?: boolean;
 }
 
+// Helper function to detect if text contains Arabic characters
+const isArabicText = (text: string): boolean => {
+  if (!text) return false;
+  const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+  return arabicRegex.test(text);
+};
+
 // Helper function to get emoji for feeling
 const getFeelingEmoji = (feeling: string): string => {
   const feelingsMap: Record<string, string> = {
@@ -426,7 +433,7 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
 
         {/* Quote content (if this is a quote repost) */}
         {post.quote_content && (
-          <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap">
+          <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap" dir={isArabicText(post.quote_content) ? 'rtl' : 'ltr'}>
             <MentionText content={post.quote_content} />
           </div>
         )}
@@ -449,7 +456,7 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
               )}
               <span className="text-xs text-muted-foreground">@{originalProfile?.username}</span>
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-2">
+            <p className="text-sm text-muted-foreground line-clamp-2" dir={isArabicText(originalPost.content) ? 'rtl' : 'ltr'}>
               {originalPost.content}
             </p>
           </Link>
@@ -457,7 +464,7 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
 
         {/* Content - show original content for simple reposts, or post content for regular posts */}
         {(!post.quote_content || !isRepost) && (
-          <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap">
+          <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap" dir={isArabicText(isRepost && originalPost ? originalPost.content : post.content) ? 'rtl' : 'ltr'}>
             <MentionText content={isRepost && originalPost ? originalPost.content : post.content} />
           </div>
         )}
