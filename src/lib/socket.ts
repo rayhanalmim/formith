@@ -45,7 +45,7 @@ class SocketClient {
       return this.socket;
     }
 
-    const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+    const serverUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL?.replace(/\/api$/, '') || 'http://localhost:3000';
 
     this.socket = io(serverUrl, {
       auth: { token },
