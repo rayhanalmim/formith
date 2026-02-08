@@ -34,11 +34,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Helper function to detect if text contains Arabic characters
+// Helper function to detect if text contains Arabic characters (ignoring hashtags and mentions)
 const isArabicText = (text: string): boolean => {
   if (!text) return false;
+  // Remove hashtags and mentions before checking
+  const cleaned = text.replace(/#[a-zA-Z0-9_\u0600-\u06FF]+/g, '').replace(/@[a-zA-Z0-9_]+/g, '');
   const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-  return arabicRegex.test(text);
+  return arabicRegex.test(cleaned);
 };
 
 interface CommentItemProps {
