@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,7 +43,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { useQuery } from '@tanstack/react-query';
-import { doClient } from '@/lib/do-client';
+import { api } from '@/lib/api';
 
 interface CircleUser {
   user_id: string;
@@ -94,24 +95,35 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   
   const { getStatus } = useUserStatus(allUserIds);
 
-  // Fetch last_seen_at for all users
-  const { data: lastSeenData } = useQuery({
-    queryKey: ['last-seen', allUserIds.sort().join(',')],
-    queryFn: async (): Promise<Record<string, string | null>> => {
-      if (allUserIds.length === 0) return {};
-      const profiles = await doClient.from('profiles')
-        .in('user_id', allUserIds)
-        .select('user_id, last_seen_at');
-      
-      const result: Record<string, string | null> = {};
-      (profiles || []).forEach((p: any) => {
-        result[p.user_id] = p.last_seen_at;
-      });
-      return result;
+  // Fetch profiles for all users (last_seen_at + profile data for circle users)
+  const { data: batchProfiles } = useQuery({
+    queryKey: ['batch-profiles', allUserIds.sort().join(',')],
+    queryFn: async () => {
+      if (allUserIds.length === 0) return [];
+      const response = await api.getProfilesBatch(allUserIds);
+      return response.data || [];
     },
     enabled: allUserIds.length > 0,
     staleTime: 60000, // 1 minute
   });
+
+  // Build last_seen_at map from batch profiles
+  const lastSeenData = useMemo(() => {
+    const result: Record<string, string | null> = {};
+    (batchProfiles || []).forEach((p: any) => {
+      result[p.user_id] = p.last_seen_at;
+    });
+    return result;
+  }, [batchProfiles]);
+
+  // Build profile lookup map for enriching circle users
+  const profileMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    (batchProfiles || []).forEach((p: any) => {
+      map[p.user_id] = p;
+    });
+    return map;
+  }, [batchProfiles]);
 
   const getLastSeen = (userId: string): string => {
     const status = getStatus(userId);
@@ -150,15 +162,16 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     const seen = new Set<string>();
     const result: CircleUser[] = [];
     
-    // First add online users (priority)
+    // First add online users (priority) — enrich with profileMap data
     onlineUsers.forEach(u => {
       if (u.user_id !== user?.id && !seen.has(u.user_id)) {
         seen.add(u.user_id);
+        const profile = profileMap[u.user_id];
         result.push({
           user_id: u.user_id,
-          username: u.username,
-          display_name: u.display_name,
-          avatar_url: u.avatar_url,
+          username: profile?.username || u.username,
+          display_name: profile?.display_name || u.display_name,
+          avatar_url: profile?.avatar_url || u.avatar_url,
           is_online: true,
         });
       }
@@ -166,15 +179,16 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     
     // Then add followers/following who are online
     const allConnections = [...(followers || []), ...(following || [])];
-    allConnections.forEach((profile: any) => {
-      if (profile.user_id !== user?.id && !seen.has(profile.user_id)) {
-        seen.add(profile.user_id);
+    allConnections.forEach((p: any) => {
+      if (p.user_id !== user?.id && !seen.has(p.user_id)) {
+        seen.add(p.user_id);
+        const profile = profileMap[p.user_id];
         result.push({
-          user_id: profile.user_id,
-          username: profile.username,
-          display_name: profile.display_name,
-          avatar_url: profile.avatar_url,
-          is_online: isUserOnline(profile.user_id),
+          user_id: p.user_id,
+          username: profile?.username || p.username,
+          display_name: profile?.display_name || p.display_name,
+          avatar_url: profile?.avatar_url || p.avatar_url,
+          is_online: isUserOnline(p.user_id),
         });
       }
     });
@@ -187,7 +201,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
       const nameB = b.display_name || b.username || '';
       return nameA.localeCompare(nameB);
     }).slice(0, 20); // Limit to 20 users
-  }, [onlineUsers, followers, following, user?.id, isUserOnline]);
+  }, [onlineUsers, followers, following, user?.id, isUserOnline, profileMap]);
 
   // Handle clicking on a circle user to start/open a chat
   const handleCircleUserClick = async (circleUser: CircleUser) => {

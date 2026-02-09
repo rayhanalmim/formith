@@ -7,7 +7,7 @@ import { useToggleLike, useToggleBookmark, useEditPost, useDeletePost, canEditPo
 import { usePoll } from '@/hooks/usePolls';
 import { subscribeToCounterUpdates } from '@/hooks/useRealtimePostCounters';
 import { trackPostView } from '@/hooks/usePostViews';
-import { BadgeCheck, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Repeat2, MapPin, Edit, Trash2, Loader2, Eye, Clock, Flag, Send } from 'lucide-react';
+import { BadgeCheck, Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Repeat2, MapPin, Edit, Trash2, Loader2, Eye, Clock, Flag, Send, Languages } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,7 @@ import { PostImageViewer } from '@/components/ui/post-image-viewer';
 import { SharePostToDMDialog } from '@/components/messages/SharePostToDMDialog';
 import { PollDisplay } from '@/components/polls/PollDisplay';
 import { LinkPreview } from '@/components/shared/LinkPreview';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface PostCardProps {
   post: Post;
@@ -93,6 +94,8 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
   const toggleBookmark = useToggleBookmark();
   const editPost = useEditPost();
   const deletePost = useDeletePost();
+  
+  const { translate, getTranslation } = useTranslation();
   
   const [isLiked, setIsLiked] = useState(post.user_liked);
   const [isSaved, setIsSaved] = useState(post.user_bookmarked);
@@ -465,11 +468,53 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
         )}
 
         {/* Content - show original content for simple reposts, or post content for regular posts */}
-        {(!post.quote_content || !isRepost) && (
-          <div className="text-sm leading-relaxed mb-3 whitespace-pre-wrap" dir={isArabicText(isRepost && originalPost ? originalPost.content : post.content) ? 'rtl' : 'ltr'}>
-            <MentionText content={isRepost && originalPost ? originalPost.content : post.content} />
-          </div>
-        )}
+        {(!post.quote_content || !isRepost) && (() => {
+          const contentText = isRepost && originalPost ? originalPost.content : post.content;
+          const translationId = `post-${post.id}`;
+          const translation = getTranslation(translationId);
+          const contentIsArabic = isArabicText(contentText);
+          const showTranslated = translation.isTranslated && translation.translatedText;
+          const displayText = showTranslated ? translation.translatedText! : contentText;
+          const displayDir = showTranslated
+            ? (translation.targetLang === 'ar' ? 'rtl' : 'ltr')
+            : (contentIsArabic ? 'rtl' : 'ltr');
+          
+          return (
+            <div className="mb-3">
+              <div className="text-sm leading-relaxed whitespace-pre-wrap" dir={displayDir}>
+                <MentionText content={displayText} />
+              </div>
+              
+              {/* Translation error */}
+              {translation.error && (
+                <p className="text-xs text-destructive mt-1">{translation.error}</p>
+              )}
+              
+              {/* Translate toggle button */}
+              {user && (
+                <button
+                  onClick={() => translate(translationId, contentText)}
+                  disabled={translation.isTranslating}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1.5"
+                >
+                  {translation.isTranslating ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Languages className="h-3 w-3" />
+                  )}
+                  {translation.isTranslating
+                    ? (language === 'ar' ? 'جاري الترجمة...' : 'Translating...')
+                    : translation.isTranslated
+                      ? (language === 'ar' ? 'عرض الأصلي' : 'Show original')
+                      : contentIsArabic
+                        ? (language === 'ar' ? 'ترجم إلى الإنجليزية' : 'Translate to English')
+                        : (language === 'ar' ? 'ترجم إلى العربية' : 'Translate to Arabic')
+                  }
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Link Previews */}
         {post.link_previews && (

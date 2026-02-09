@@ -644,6 +644,14 @@ class ApiClient {
     return this.request<ApiResponse<StoryHighlight[]>>(`/stories/highlights/${userId}`);
   }
 
+  // Batch profiles (for DM circle users, last seen, etc.)
+  async getProfilesBatch(userIds: string[]): Promise<ApiResponse<any[]>> {
+    return this.request<ApiResponse<any[]>>('/users/profiles/batch', {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    });
+  }
+
   // User status endpoints
   async getUserStatuses(userIds: string[]): Promise<ApiResponse<Record<string, string>>> {
     return this.request<ApiResponse<Record<string, string>>>('/users/statuses', {
@@ -759,6 +767,10 @@ class ApiClient {
   }
 
   // Push notifications
+  async getVapidPublicKey(): Promise<ApiResponse<{ publicKey: string }>> {
+    return this.request<ApiResponse<{ publicKey: string }>>('/notifications/vapid-public-key');
+  }
+
   async hasPushSubscription(userId: string): Promise<ApiResponse<{ hasSubscription: boolean }>> {
     return this.request<ApiResponse<{ hasSubscription: boolean }>>(`/notifications/push-subscription/${userId}`);
   }
@@ -1624,6 +1636,15 @@ class ApiClient {
     return this.request<ApiResponse<{ imageUrl: string }>>('/media/remove-background', {
       method: 'POST',
       body: JSON.stringify({ imageBase64 }),
+    });
+  }
+
+  // ========== TRANSLATION ==========
+
+  async translateText(text: string, targetLang?: 'en' | 'ar'): Promise<ApiResponse<{ translatedText: string; detectedLang: string; targetLang: string }>> {
+    return this.request<ApiResponse<{ translatedText: string; detectedLang: string; targetLang: string }>>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, targetLang }),
     });
   }
 }

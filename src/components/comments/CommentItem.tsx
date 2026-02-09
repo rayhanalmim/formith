@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToggleCommentLike, useUpdateComment, useDeleteComment, type Comment } from '@/hooks/useComments';
 import { subscribeToCommentLikeUpdates } from '@/hooks/useRealtimeCommentLikes';
-import { BadgeCheck, Heart, MessageCircle, ChevronDown, Loader2, Check, X, Trash2, Pencil, Flag, MoreHorizontal } from 'lucide-react';
+import { BadgeCheck, Heart, MessageCircle, ChevronDown, Loader2, Check, X, Trash2, Pencil, Flag, MoreHorizontal, Languages } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/lib/default-images';
 import { formatDistanceToNow, differenceInMinutes } from 'date-fns';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { CommentProfile } from '@/hooks/useComments';
 import { LinkPreview } from '@/components/shared/LinkPreview';
 import { ReportCommentDialog } from '@/components/comments/ReportCommentDialog';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,7 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
   const toggleLike = useToggleCommentLike();
   const updateComment = useUpdateComment();
   const deleteComment = useDeleteComment();
+  const { translate, getTranslation } = useTranslation();
   
   const [isLiked, setIsLiked] = useState(comment.user_liked);
   const [likesCount, setLikesCount] = useState(comment.likes_count || 0);
@@ -368,24 +370,63 @@ export function CommentItem({ comment, postId, onReply, isReply = false }: Comme
                   </Button>
                 </div>
               </div>
-            ) : (
-              <div>
-                <div 
-                  className="text-sm whitespace-pre-wrap"
-                  dir={isArabicText(comment.content) ? 'rtl' : 'ltr'}
-                  onClick={handleContentClick}
-                >
-                  <MentionText content={comment.content} />
-                </div>
-                
-                {/* Link Previews */}
-                {comment.link_previews && (
-                  <div className="mt-2">
-                    <LinkPreview previews={typeof comment.link_previews === 'string' ? JSON.parse(comment.link_previews) : comment.link_previews} />
+            ) : (() => {
+              const translationId = `comment-${comment.id}`;
+              const translation = getTranslation(translationId);
+              const contentIsArabic = isArabicText(comment.content);
+              const showTranslated = translation.isTranslated && translation.translatedText;
+              const displayText = showTranslated ? translation.translatedText! : comment.content;
+              const displayDir = showTranslated
+                ? (translation.targetLang === 'ar' ? 'rtl' : 'ltr')
+                : (contentIsArabic ? 'rtl' : 'ltr');
+              
+              return (
+                <div>
+                  <div 
+                    className="text-sm whitespace-pre-wrap"
+                    dir={displayDir}
+                    onClick={handleContentClick}
+                  >
+                    <MentionText content={displayText} />
                   </div>
-                )}
-              </div>
-            )}
+                  
+                  {/* Translation error */}
+                  {translation.error && (
+                    <p className="text-xs text-destructive mt-1">{translation.error}</p>
+                  )}
+                  
+                  {/* Translate toggle button */}
+                  {user && (
+                    <button
+                      onClick={() => translate(translationId, comment.content)}
+                      disabled={translation.isTranslating}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1"
+                    >
+                      {translation.isTranslating ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Languages className="h-3 w-3" />
+                      )}
+                      {translation.isTranslating
+                        ? (language === 'ar' ? 'جاري الترجمة...' : 'Translating...')
+                        : translation.isTranslated
+                          ? (language === 'ar' ? 'عرض الأصلي' : 'Show original')
+                          : contentIsArabic
+                            ? (language === 'ar' ? 'ترجم إلى الإنجليزية' : 'Translate to English')
+                            : (language === 'ar' ? 'ترجم إلى العربية' : 'Translate to Arabic')
+                      }
+                    </button>
+                  )}
+                  
+                  {/* Link Previews */}
+                  {comment.link_previews && (
+                    <div className="mt-2">
+                      <LinkPreview previews={typeof comment.link_previews === 'string' ? JSON.parse(comment.link_previews) : comment.link_previews} />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           
           <div className="flex items-center gap-4 mt-1 px-2">

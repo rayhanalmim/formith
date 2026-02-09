@@ -58,6 +58,12 @@ export function usePushNotifications() {
         throw new Error('Notification permission denied');
       }
 
+      // Fetch VAPID public key from server
+      const vapidResponse = await api.getVapidPublicKey();
+      if (!vapidResponse.data?.publicKey) {
+        throw new Error('VAPID public key not configured on server');
+      }
+
       // Register service worker
       const registration = await registerServiceWorker();
 
@@ -65,11 +71,7 @@ export function usePushNotifications() {
       let subscription = await registration.pushManager.getSubscription();
       
       if (!subscription) {
-        // Create new subscription (using a placeholder VAPID key)
-        // In production, you would generate proper VAPID keys
-        const vapidKey = urlBase64ToUint8Array(
-          'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
-        );
+        const vapidKey = urlBase64ToUint8Array(vapidResponse.data.publicKey);
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidKey as BufferSource,
