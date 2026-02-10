@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,52 +48,36 @@ export function PollAnalytics({ pollId, question }: PollAnalyticsProps) {
   const { data: analytics, isLoading } = useQuery({
     queryKey: ['poll-analytics', pollId],
     queryFn: async () => {
-      // Fetch poll options
-      const { data: options, error: optError } = await supabase
-        .from('poll_options')
-        .select('id, text, emoji, votes_count')
-        .eq('poll_id', pollId)
-        .order('sort_order', { ascending: true });
+      // Fetch poll analytics via Node.js API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}/polls/${pollId}/analytics`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${api.getToken()}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      if (optError) throw optError;
-
-      // Fetch all votes with voter profiles
-      const { data: votes, error: votesError } = await supabase
-        .from('poll_votes')
-        .select(`
-          user_id,
-          option_id,
-          created_at
-        `)
-        .eq('poll_id', pollId)
-        .order('created_at', { ascending: false });
-
-      if (votesError) throw votesError;
-
-      // Get unique voter IDs
-      const voterIds = [...new Set(votes?.map(v => v.user_id) || [])];
-
-      // Fetch voter profiles
-      let profiles: Record<string, any> = {};
-      if (voterIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('user_id, username, display_name, avatar_url, is_verified')
-          .in('user_id', voterIds);
-
-        profiles = (profilesData || []).reduce((acc, p) => {
-          acc[p.user_id] = p;
-          return acc;
-        }, {} as Record<string, any>);
+      if (!response.ok) {
+        throw new Error('Failed to fetch poll analytics');
       }
 
+      const data = await response.json();
+
+      // Process the analytics data
+      const options = data.data?.options || [];
+      const votes = data.data?.votes || [];
+      const profiles = data.data?.profiles || {};
+
       // Calculate total votes
-      const totalVotes = (options || []).reduce((sum, opt) => sum + (opt.votes_count || 0), 0);
+      const totalVotes = options.reduce((sum: number, opt: any) => sum + (opt.votes_count || 0), 0);
 
       // Build option stats with voters
-      const optionStats: OptionStats[] = (options || []).map(opt => {
-        const optionVotes = (votes || []).filter(v => v.option_id === opt.id);
-        const voters: VoterData[] = optionVotes.map(v => ({
+      const optionStats: OptionStats[] = options.map((opt: any) => {
+        const optionVotes = votes.filter((v: any) => v.option_id === opt.id);
+        const voters: VoterData[] = optionVotes.map((v: any) => ({
           user_id: v.user_id,
           option_id: v.option_id,
           option_text: opt.text,
@@ -117,32 +102,35 @@ export function PollAnalytics({ pollId, question }: PollAnalyticsProps) {
 
       // Get voting timeline (group by hour for last 24h, then by day)
       const now = new Date();
-      const voteTimes = (votes || []).map(v => new Date(v.created_at));
-      
+      const voteTimes = votes.map((v: any) => new Date(v.created_at));
+
       // Group by time periods
-      const last24h = voteTimes.filter(t => now.getTime() - t.getTime() < 24 * 60 * 60 * 1000).length;
-      const last7d = voteTimes.filter(t => now.getTime() - t.getTime() < 7 * 24 * 60 * 60 * 1000).length;
+      const last24h = voteTimes.filter((t: Date) => now.getTime() - t.getTime() < 24 * 60 * 60 * 1000).length;
+      const last7d = voteTimes.filter((t: Date) => now.getTime() - t.getTime() < 7 * 24 * 60 * 60 * 1000).length;
 
       return {
         totalVotes,
-        uniqueVoters: voterIds.length,
+        uniqueVoters: data.data?.uniqueVoters || new Set(votes.map((v: any) => v.user_id)).size,
         optionStats,
         recentActivity: {
           last24h,
           last7d,
         },
-        allVoters: (votes || []).map(v => ({
-          user_id: v.user_id,
-          option_id: v.option_id,
-          option_text: options?.find(o => o.id === v.option_id)?.text || '',
-          voted_at: v.created_at,
-          profile: profiles[v.user_id] || {
-            username: 'unknown',
-            display_name: null,
-            avatar_url: null,
-            is_verified: false,
-          },
-        })),
+        allVoters: votes.map((v: any) => {
+          const option = options.find((o: any) => o.id === v.option_id);
+          return {
+            user_id: v.user_id,
+            option_id: v.option_id,
+            option_text: option?.text || '',
+            voted_at: v.created_at,
+            profile: profiles[v.user_id] || {
+              username: 'unknown',
+              display_name: null,
+              avatar_url: null,
+              is_verified: false,
+            },
+          };
+        }),
       };
     },
     enabled: open,
@@ -218,10 +206,10 @@ export function PollAnalytics({ pollId, question }: PollAnalyticsProps) {
                           {option.votes_count} ({option.percentage}%)
                         </Badge>
                       </div>
-                      
+
                       {/* Progress bar */}
                       <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
-                        <div 
+                        <div
                           className="h-full bg-primary transition-all"
                           style={{ width: `${option.percentage}%` }}
                         />
@@ -232,8 +220,8 @@ export function PollAnalytics({ pollId, question }: PollAnalyticsProps) {
                         <div className="flex items-center gap-1">
                           <div className="flex -space-x-2">
                             {option.voters.slice(0, 5).map((voter) => (
-                              <Link 
-                                key={voter.user_id} 
+                              <Link
+                                key={voter.user_id}
                                 to={`/profile/${voter.profile.username}`}
                                 className="relative"
                               >

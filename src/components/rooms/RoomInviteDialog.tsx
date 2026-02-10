@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSendRoomInvite, useRoomInvites, useCancelInvite } from '@/hooks/useRoomInvites';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -48,14 +48,31 @@ export function RoomInviteDialog({ roomId, trigger }: RoomInviteDialogProps) {
 
       setSearching(true);
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, username, display_name, avatar_url')
-          .or(`username.ilike.%${search}%,display_name.ilike.%${search}%`)
-          .limit(10);
+        // Search users via Node.js API
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:9000/api'}/users/search?q=${encodeURIComponent(search)}&limit=10`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${api.getToken()}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-        if (error) throw error;
-        setSearchResults(data || []);
+        if (!response.ok) {
+          throw new Error('Search failed');
+        }
+
+        const data = await response.json();
+        const users = (data.data || data || []).map((u: any) => ({
+          user_id: u.user_id || u.id,
+          username: u.username,
+          display_name: u.display_name,
+          avatar_url: u.avatar_url,
+        }));
+
+        setSearchResults(users);
       } catch (error) {
         console.error('Search error:', error);
         setSearchResults([]);

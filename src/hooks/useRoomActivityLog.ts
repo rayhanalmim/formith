@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 export interface RoomActivityLog {
@@ -38,6 +38,7 @@ export function useRoomActivityLogs(limit = 50) {
 
 export function useLogRoomActivity() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -51,7 +52,6 @@ export function useLogRoomActivity() {
       targetUserId?: string;
       details?: Record<string, unknown>;
     }) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const response = await api.logRoomActivity(roomId, user.id, actionType, targetUserId, details);
