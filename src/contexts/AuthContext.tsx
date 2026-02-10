@@ -6,7 +6,7 @@ import { socketClient } from '@/lib/socket';
 // Custom user type for Node.js auth
 interface AppUser {
   id: string;
-  email: string;
+  email: string | null;
   roles?: string[];
 }
 
@@ -35,7 +35,8 @@ interface AuthContextType {
   isBanned: boolean;
   isAuthenticated: boolean;
   signUp: (email: string, password: string, redirectUrl?: string, language?: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; requiresMFA?: boolean; mfaFactorId?: string }>;
+  completeMFASignIn: (factorId: string, code: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -184,11 +185,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.signIn(email, password);
       console.log('[AuthContext] API response:', response);
-      
+
       if (!response.success) {
         return { error: new Error(response.message) };
       }
-      
+
+      // Check if MFA is required
+      if (response.requiresMFA) {
+        return {
+          error: null,
+          requiresMFA: true,
+          mfaFactorId: response.mfaFactorId
+        };
+      }
+
       // Set user and profile from response
       if (response.user) {
         setUser(response.user);
@@ -196,7 +206,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.profile) {
         setProfile(response.profile as AppProfile);
       }
-      
+
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
+  const completeMFASignIn = async (factorId: string, code: string) => {
+    try {
+      const response = await api.challengeMFA(factorId, code);
+
+      if (!response.success) {
+        return { error: new Error(response.message) };
+      }
+
+      // Set user and profile from response
+      if (response.user) {
+        setUser(response.user);
+      }
+      if (response.profile) {
+        setProfile(response.profile as AppProfile);
+      }
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -213,14 +245,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user && !!api.getToken();
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      isBanned, 
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      loading,
+      isBanned,
       isAuthenticated,
-      signUp, 
-      signIn, 
+      signUp,
+      signIn,
+      completeMFASignIn,
       signOut,
       refreshProfile
     }}>

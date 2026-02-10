@@ -10,7 +10,7 @@ export interface MFAFactor {
   id: string;
   friendly_name?: string;
   factor_type: 'totp';
-  status: 'verified' | 'unverified';
+  status: 'verified' | 'unverified' | 'disabled';
   created_at: string;
   updated_at: string;
 }
@@ -121,25 +121,77 @@ export function useUnenrollMFA() {
   return useMutation({
     mutationFn: async (factorId: string) => {
       if (!user) throw new Error('Not authenticated');
-      
-      const response = await api.unenrollMFA(factorId, user.id);
 
-      if (!response.success) throw new Error('Failed to unenroll MFA');
+      const response = await api.disableMFA(factorId);
+
+      if (!response.success) throw new Error('Failed to disable MFA');
     },
     onSuccess: () => {
+      // Invalidate both queries so the UI updates to show re-enable screen
       queryClient.invalidateQueries({ queryKey: ['mfa-factors'] });
+      queryClient.invalidateQueries({ queryKey: ['mfa-disabled-factor'] });
       toast.success(
-        language === 'ar' 
-          ? 'تم تعطيل التحقق بخطوتين' 
+        language === 'ar'
+          ? 'تم تعطيل التحقق بخطوتين'
           : '2FA disabled successfully'
       );
     },
     onError: (error: any) => {
-      console.error('Failed to unenroll MFA:', error);
+      console.error('Failed to disable MFA:', error);
       toast.error(
-        language === 'ar' 
-          ? 'فشل في تعطيل التحقق بخطوتين' 
+        language === 'ar'
+          ? 'فشل في تعطيل التحقق بخطوتين'
           : 'Failed to disable 2FA'
+      );
+    },
+  });
+}
+
+export function useDisabledMFAFactor() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['mfa-disabled-factor', user?.id],
+    queryFn: async (): Promise<MFAFactor | null> => {
+      if (!user) return null;
+
+      const response = await api.getDisabledMFAFactor(user.id);
+
+      if (!response.success) return null;
+
+      return response.data || null;
+    },
+    enabled: !!user,
+  });
+}
+
+export function useReenableMFA() {
+  const { language } = useLanguage();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (factorId: string) => {
+      const response = await api.reenableMFA(factorId);
+
+      if (!response.success) throw new Error(response.message || 'Failed to re-enable MFA');
+
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mfa-factors'] });
+      queryClient.invalidateQueries({ queryKey: ['mfa-disabled-factor'] });
+      toast.success(
+        language === 'ar'
+          ? 'تم إعادة تفعيل التحقق بخطوتين'
+          : '2FA re-enabled successfully'
+      );
+    },
+    onError: (error: any) => {
+      console.error('Failed to re-enable MFA:', error);
+      toast.error(
+        language === 'ar'
+          ? 'فشل في إعادة تفعيل التحقق بخطوتين'
+          : 'Failed to re-enable 2FA'
       );
     },
   });
@@ -147,18 +199,19 @@ export function useUnenrollMFA() {
 
 export function useMFAChallenge() {
   const { language } = useLanguage();
+  const { completeMFASignIn } = useAuth();
 
   return useMutation({
     mutationFn: async ({ factorId, code }: { factorId: string; code: string }) => {
-      const response = await api.challengeMFA(factorId, code);
+      const { error } = await completeMFASignIn(factorId, code);
 
-      if (!response.success) throw new Error('MFA verification failed');
+      if (error) throw new Error(error.message || 'MFA verification failed');
     },
     onError: (error: any) => {
       console.error('MFA verification failed:', error);
       toast.error(
-        language === 'ar' 
-          ? 'رمز التحقق غير صحيح' 
+        language === 'ar'
+          ? 'رمز التحقق غير صحيح'
           : 'Invalid verification code'
       );
     },

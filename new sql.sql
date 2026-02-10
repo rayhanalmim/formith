@@ -1701,3 +1701,97 @@ CREATE INDEX idx_do_users_user_id ON public.do_users USING btree (user_id);
 
 \unrestrict htpGThjvLQDTzC2xdHaNO79dfRybvGEX95IcOqsctVa1l9tDloea3n7Y6sBq4qm
 
+
+-- =====================================================
+-- MFA (Two-Factor Authentication) Tables
+-- =====================================================
+
+-- MFA Factors table for storing TOTP secrets
+CREATE TABLE IF NOT EXISTS mfa_factors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    friendly_name TEXT DEFAULT 'Authenticator App',
+    factor_type TEXT DEFAULT 'totp',
+    status TEXT DEFAULT 'unverified', -- 'verified' or 'unverified'
+    secret TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_mfa_factors_user_id ON mfa_factors(user_id);
+CREATE INDEX IF NOT EXISTS idx_mfa_factors_status ON mfa_factors(status);
+
+-- =====================================================
+-- MFA-related queries reference
+-- =====================================================
+
+-- List verified MFA factors for a user
+-- SELECT id, user_id, friendly_name, factor_type, status, created_at, updated_at
+-- FROM mfa_factors
+-- WHERE user_id = $1 AND status = 'verified'
+-- ORDER BY created_at DESC;
+
+-- Check if user has verified MFA (for login)
+-- SELECT id FROM mfa_factors WHERE user_id = $1 AND status = 'verified' LIMIT 1;
+
+-- Insert new MFA factor (during enrollment)
+-- INSERT INTO mfa_factors (id, user_id, friendly_name, factor_type, status, secret, created_at, updated_at)
+-- VALUES ($1, $2, $3, 'totp', 'unverified', $4, NOW(), NOW());
+
+-- Update MFA factor status to verified (after user confirms code)
+-- UPDATE mfa_factors SET status = 'verified', updated_at = NOW() WHERE id = $1;
+
+-- Get MFA factor secret for verification
+-- SELECT secret FROM mfa_factors WHERE id = $1 AND status = 'verified';
+
+-- Delete MFA factor (when user disables 2FA)
+-- DELETE FROM mfa_factors WHERE id = $1 AND user_id = $2;
+
+-- Get assurance level (count verified MFA factors)
+-- SELECT COUNT(*) as count FROM mfa_factors WHERE user_id = $1 AND status = 'verified';
+
+-- Get user info after MFA verification (for issuing token)
+-- SELECT mf.user_id, u.email, p.id as profile_id, p.username, p.display_name, p.avatar_url, p.is_verified
+-- FROM mfa_factors mf
+-- JOIN do_users u ON u.user_id = mf.user_id
+-- JOIN profiles p ON p.user_id = mf.user_id
+-- WHERE mf.id = $1 AND mf.status = 'verified';
+
+-- =====================================================
+-- MFA Status Update - Soft Disable Support
+-- =====================================================
+
+-- Update the status column to include 'disabled' option
+-- The status column can now be: 'verified', 'unverified', or 'disabled'
+
+-- Update existing factors if needed (optional migration)
+-- UPDATE mfa_factors SET status = 'verified' WHERE status = 'active';
+
+-- New queries for soft disable/enable:
+
+-- Disable MFA factor (soft delete - keeps setup for re-enabling)
+-- UPDATE mfa_factors
+-- SET status = 'disabled', updated_at = NOW()
+-- WHERE id = $1 AND user_id = $2 AND status = 'verified';
+
+-- Re-enable a previously disabled MFA factor
+-- UPDATE mfa_factors
+-- SET status = 'verified', updated_at = NOW()
+-- WHERE id = $1 AND user_id = $2 AND status = 'disabled';
+
+-- Get disabled MFA factor for re-enabling
+-- SELECT id, user_id, friendly_name, factor_type, status, created_at, updated_at
+-- FROM mfa_factors
+-- WHERE user_id = $1 AND status = 'disabled'
+-- ORDER BY created_at DESC
+-- LIMIT 1;
+
+-- Check if user has verified MFA for login (only 'verified' status, not 'disabled')
+-- SELECT id FROM mfa_factors WHERE user_id = $1 AND status = 'verified' LIMIT 1;
+
+-- List all MFA factors including disabled
+-- SELECT id, user_id, friendly_name, factor_type, status, created_at, updated_at
+-- FROM mfa_factors
+-- WHERE user_id = $1
+-- ORDER BY created_at DESC;

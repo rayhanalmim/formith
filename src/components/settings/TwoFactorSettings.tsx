@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMFAFactors, useEnrollMFA, useUnenrollMFA } from '@/hooks/useTwoFactorAuth';
+import { useMFAFactors, useEnrollMFA, useUnenrollMFA, useDisabledMFAFactor, useReenableMFA } from '@/hooks/useTwoFactorAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,36 +19,40 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  Smartphone, 
-  Shield, 
-  ShieldCheck, 
-  ShieldOff, 
-  Loader2, 
-  Copy, 
+import {
+  Smartphone,
+  Shield,
+  ShieldCheck,
+  ShieldOff,
+  Loader2,
+  Copy,
   Check,
-  X
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function TwoFactorSettings() {
   const { language } = useLanguage();
   const { data: factors, isLoading } = useMFAFactors();
-  const { 
-    enrollmentData, 
-    enroll, 
-    isEnrolling, 
-    verify, 
+  const { data: disabledFactor } = useDisabledMFAFactor();
+  const {
+    enrollmentData,
+    enroll,
+    isEnrolling,
+    verify,
     isVerifying,
-    cancelEnrollment 
+    cancelEnrollment
   } = useEnrollMFA();
   const unenroll = useUnenrollMFA();
+  const reenable = useReenableMFA();
 
   const [verificationCode, setVerificationCode] = useState('');
   const [copiedSecret, setCopiedSecret] = useState(false);
 
   const verifiedFactors = factors?.filter(f => f.status === 'verified') || [];
   const hasActive2FA = verifiedFactors.length > 0;
+  const hasDisabled2FA = !!disabledFactor;
 
   const handleCopySecret = () => {
     if (enrollmentData?.totp.secret) {
@@ -263,8 +267,53 @@ export function TwoFactorSettings() {
             </div>
           </CardContent>
         </Card>
+      ) : hasDisabled2FA ? (
+        /* Re-enable 2FA - Show existing setup */
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center text-center gap-4 py-4">
+              <div className="h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <RotateCcw className="h-8 w-8 text-amber-500" />
+              </div>
+              <div>
+                <p className="font-medium">
+                  {language === 'ar'
+                    ? 'التحقق بخطوتين معطّل'
+                    : 'Two-Factor Authentication is disabled'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {language === 'ar'
+                    ? 'لديك إعداد 2FA محفوظ. يمكنك إعادة تفعيله دون الحاجة لمسح رمز QR جديد'
+                    : 'You have a saved 2FA setup. You can re-enable it without scanning a new QR code'}
+                </p>
+              </div>
+              <Button
+                onClick={() => reenable.mutate(disabledFactor!.id)}
+                disabled={reenable.isPending}
+                className="bg-amber-500 hover:bg-amber-600"
+              >
+                {reenable.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin me-2" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4 me-2" />
+                )}
+                {language === 'ar' ? 'إعادة تفعيل 2FA' : 'Re-enable 2FA'}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => enroll('Authenticator App')}
+                disabled={isEnrolling}
+                className="text-sm text-muted-foreground"
+              >
+                {language === 'ar'
+                  ? 'إعداد جديد (مسح رمز QR)'
+                  : 'Setup new (scan QR code)'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        /* Enable 2FA Button */
+        /* Enable 2FA Button - New Setup */
         <Card className="border-dashed">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center gap-4 py-4">
@@ -273,13 +322,13 @@ export function TwoFactorSettings() {
               </div>
               <div>
                 <p className="font-medium">
-                  {language === 'ar' 
-                    ? 'التحقق بخطوتين غير مفعّل' 
+                  {language === 'ar'
+                    ? 'التحقق بخطوتين غير مفعّل'
                     : 'Two-Factor Authentication is not enabled'}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {language === 'ar' 
-                    ? 'قم بتفعيل 2FA لحماية حسابك من الوصول غير المصرح به' 
+                  {language === 'ar'
+                    ? 'قم بتفعيل 2FA لحماية حسابك من الوصول غير المصرح به'
                     : 'Enable 2FA to protect your account from unauthorized access'}
                 </p>
               </div>

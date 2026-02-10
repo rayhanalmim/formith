@@ -14,6 +14,7 @@ interface AuthResponse {
   user?: {
     id: string;
     email: string;
+    roles?: string[];
   };
   profile?: {
     id: string;
@@ -24,13 +25,15 @@ interface AuthResponse {
     is_verified: boolean;
   };
   token?: string;
+  requiresMFA?: boolean;
+  mfaFactorId?: string;
 }
 
 interface ProfileResponse {
   success: boolean;
   user?: {
     id: string;
-    email: string;
+    email: string | null;
     roles: string[];
   };
   profile?: {
@@ -1575,11 +1578,18 @@ class ApiClient {
     });
   }
 
-  async challengeMFA(factorId: string, code: string): Promise<ApiResponse<void>> {
-    return this.request<ApiResponse<void>>('/mfa/challenge', {
+  async challengeMFA(factorId: string, code: string): Promise<AuthResponse> {
+    const response = await this.request<AuthResponse>('/mfa/challenge', {
       method: 'POST',
       body: JSON.stringify({ factorId, code }),
     });
+
+    // If successful, store the token
+    if (response.success && response.token) {
+      this.setToken(response.token);
+    }
+
+    return response;
   }
 
   async unenrollMFA(factorId: string, userId: string): Promise<ApiResponse<void>> {
@@ -1587,6 +1597,24 @@ class ApiClient {
       method: 'DELETE',
       body: JSON.stringify({ userId }),
     });
+  }
+
+  async disableMFA(factorId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request<ApiResponse<{ message: string }>>('/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ factorId }),
+    });
+  }
+
+  async reenableMFA(factorId: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request<ApiResponse<{ message: string }>>('/mfa/reenable', {
+      method: 'POST',
+      body: JSON.stringify({ factorId }),
+    });
+  }
+
+  async getDisabledMFAFactor(userId: string): Promise<ApiResponse<MFAFactor | null>> {
+    return this.request<ApiResponse<MFAFactor | null>>(`/mfa/disabled-factor/${userId}`);
   }
 
   async getMFAAssuranceLevel(userId: string): Promise<ApiResponse<{ currentLevel: string; nextLevel: string | null }>> {
@@ -1837,6 +1865,16 @@ export interface Poll {
   options: PollOption[];
   user_votes: string[];
   total_votes: number;
+}
+
+export interface MFAFactor {
+  id: string;
+  user_id: string;
+  friendly_name: string;
+  factor_type: 'totp';
+  status: 'verified' | 'unverified' | 'disabled';
+  created_at: string;
+  updated_at: string;
 }
 
 export const api = new ApiClient(API_BASE_URL);

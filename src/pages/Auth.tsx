@@ -144,14 +144,15 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       if (isLogin) {
-        const { error } = await signIn(email.trim(), password);
+        const { error, requiresMFA, mfaFactorId } = await signIn(email.trim(), password);
+
         if (error) {
           if (error.message.includes('Invalid') || error.message.includes('invalid')) {
             toast({
@@ -169,6 +170,13 @@ export default function Auth() {
               description: error.message,
             });
           }
+        } else if (requiresMFA && mfaFactorId) {
+          // Show MFA challenge dialog
+          setMfaFactorId(mfaFactorId);
+          setShowMFAChallenge(true);
+          setMfaPending(true);
+          setIsLoading(false);
+          return; // Don't navigate yet
         } else {
           toast({
             title: txt.loginSuccess,
@@ -178,12 +186,12 @@ export default function Auth() {
       } else {
         // Sign up with redirect URL and language
         const { error } = await signUp(
-          email.trim(), 
+          email.trim(),
           password,
           `${window.location.origin}/verify-email`,
           language
         );
-        
+
         if (error) {
           if (error.message.includes('already registered') || error.message.includes('already exists')) {
             toast({
@@ -218,6 +226,8 @@ export default function Auth() {
     setShowMFAChallenge(false);
     setMfaPending(false);
     setMfaFactorId(null);
+    // The token is already set by the API call in MFAChallengeDialog
+    // Just show success and navigate
     toast({
       title: txt.loginSuccess,
     });
