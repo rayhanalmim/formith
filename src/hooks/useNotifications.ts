@@ -77,6 +77,23 @@ export function useNotifications() {
     queryClient.invalidateQueries({ queryKey: ['notifications-unread-count', user?.id] });
   }, [queryClient, user?.id]);
 
+  // Handle notification deletions via Socket.io (e.g., when a related post is deleted)
+  const handleNotificationDelete = useCallback((data: { ids: string[] }) => {
+    if (!data?.ids || data.ids.length === 0) return;
+
+    queryClient.setQueryData<Notification[]>(
+      ['notifications', user?.id],
+      (old) => {
+        if (!old) return [];
+        const idsToDelete = new Set(data.ids);
+        return old.filter((n) => !idsToDelete.has(n.id));
+      }
+    );
+
+    // Unread count may have changed
+    queryClient.invalidateQueries({ queryKey: ['notifications-unread-count', user?.id] });
+  }, [queryClient, user?.id]);
+
   // Handle mark all as read via Socket.io
   const handleMarkAllRead = useCallback(() => {
     queryClient.setQueryData<Notification[]>(
@@ -97,13 +114,15 @@ export function useNotifications() {
     socketClient.on('notification:new', handleNewNotification);
     socketClient.on('notification:update', handleNotificationUpdate);
     socketClient.on('notification:mark-all-read', handleMarkAllRead);
+    socketClient.on('notification:delete', handleNotificationDelete);
 
     return () => {
       socketClient.off('notification:new', handleNewNotification);
       socketClient.off('notification:update', handleNotificationUpdate);
       socketClient.off('notification:mark-all-read', handleMarkAllRead);
+      socketClient.off('notification:delete', handleNotificationDelete);
     };
-  }, [user?.id, handleNewNotification, handleNotificationUpdate, handleMarkAllRead]);
+  }, [user?.id, handleNewNotification, handleNotificationUpdate, handleMarkAllRead, handleNotificationDelete]);
 
   return query;
 }
