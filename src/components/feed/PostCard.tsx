@@ -153,6 +153,7 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
     setLightboxIndex(index);
     setLightboxOpen(true);
     
+    
     // Track view only once per post per session for logged-in users
     if (!hasTrackedView.current && user?.id) {
       hasTrackedView.current = true;
