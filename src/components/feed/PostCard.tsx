@@ -153,15 +153,27 @@ export function PostCard({ post, onRepostSuccess, isNew = false }: PostCardProps
     setLightboxIndex(index);
     setLightboxOpen(true);
     
-    // Track view only once per post
-    if (!hasTrackedView.current) {
+    // Track view only once per post per session for logged-in users
+    if (!hasTrackedView.current && user?.id) {
       hasTrackedView.current = true;
-      const success = await trackPostView(post.id);
+      const success = await trackPostView(post.id, user.id);
       if (success) {
         setViews(prev => prev + 1);
       }
     }
   };
+
+  // Track view when post card is first seen by a logged-in user
+  useEffect(() => {
+    if (!user?.id || hasTrackedView.current) return;
+
+    hasTrackedView.current = true;
+    trackPostView(post.id, user.id).then((success) => {
+      if (success) {
+        setViews((prev) => prev + 1);
+      }
+    });
+  }, [post.id, user?.id]);
 
   // Sync with prop updates
   useEffect(() => {
