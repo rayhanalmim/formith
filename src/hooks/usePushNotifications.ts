@@ -15,7 +15,7 @@ export function usePushNotifications() {
     // Check if push notifications are supported
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     setIsSupported(supported);
-    
+
     if (supported) {
       setPermission(Notification.permission);
     }
@@ -69,7 +69,7 @@ export function usePushNotifications() {
 
       // Get push subscription
       let subscription = await registration.pushManager.getSubscription();
-      
+
       if (!subscription) {
         const vapidKey = urlBase64ToUint8Array(vapidResponse.data.publicKey);
         subscription = await registration.pushManager.subscribe({
@@ -81,12 +81,19 @@ export function usePushNotifications() {
       const subscriptionData = subscription.toJSON();
 
       // Save to Node.js backend
-      await api.createPushSubscription(
+      const result = await api.createPushSubscription(
         user.id,
         subscriptionData.endpoint!,
         subscriptionData.keys?.p256dh || '',
         subscriptionData.keys?.auth || ''
       );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create subscription');
+      }
+
+      // Update user settings to enable push notifications
+      await api.updateUserSettings(user.id, { push_notifications: true });
 
       return subscription;
     },
@@ -96,8 +103,9 @@ export function usePushNotifications() {
         description: 'You will receive notifications for mentions, likes, and comments.',
       });
       queryClient.invalidateQueries({ queryKey: ['push-subscription', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Push subscription error:', error);
       toast({
         title: 'Failed to enable notifications',
@@ -121,18 +129,34 @@ export function usePushNotifications() {
       }
 
       // Remove from Node.js backend
-      await api.deletePushSubscription(user.id);
+      const result = await api.deletePushSubscription(user.id);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete subscription');
+      }
+
+      // Update user settings to disable push notifications
+      await api.updateUserSettings(user.id, { push_notifications: false });
     },
     onSuccess: () => {
       toast({
         title: 'Push notifications disabled',
       });
       queryClient.invalidateQueries({ queryKey: ['push-subscription', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+    },
+    onError: (error: Error) => {
+      console.error('Push unsubscribe error:', error);
+      toast({
+        title: 'Failed to disable notifications',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 
   // Check if user is subscribed
-  const { data: isSubscribed } = useQuery({
+  const { data: isSubscribed, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ['push-subscription', user?.id],
     queryFn: async () => {
       if (!user) return false;
@@ -140,12 +164,15 @@ export function usePushNotifications() {
       return response.data?.hasSubscription || false;
     },
     enabled: !!user && isSupported,
+    retry: false,
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   return {
     isSupported,
     permission,
     isSubscribed: isSubscribed || false,
+    isLoading: isLoadingSubscription,
     subscribe,
     unsubscribe,
     requestPermission,

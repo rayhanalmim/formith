@@ -1795,3 +1795,97 @@ CREATE INDEX IF NOT EXISTS idx_mfa_factors_status ON mfa_factors(status);
 -- FROM mfa_factors
 -- WHERE user_id = $1
 -- ORDER BY created_at DESC;
+
+-- =====================================================
+-- User Settings Table (for notification preferences)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE,
+    
+    -- Notification preferences
+    email_notifications BOOLEAN DEFAULT true,
+    push_notifications BOOLEAN DEFAULT true,
+    notify_likes BOOLEAN DEFAULT true,
+    notify_comments BOOLEAN DEFAULT true,
+    notify_follows BOOLEAN DEFAULT true,
+    notify_messages BOOLEAN DEFAULT true,
+    
+    -- Privacy settings
+    profile_visibility TEXT DEFAULT 'public', -- 'public', 'followers', 'private'
+    show_online_status BOOLEAN DEFAULT true,
+    allow_messages_from TEXT DEFAULT 'everyone', -- 'everyone', 'followers', 'nobody'
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+
+-- =====================================================
+-- Notification preferences queries
+-- =====================================================
+
+-- Get user's notification preferences
+-- SELECT push_notifications, notify_likes, notify_follows, notify_comments, notify_messages
+-- FROM user_settings
+-- WHERE user_id = $1;
+
+-- Update push notification preference
+-- UPDATE user_settings SET push_notifications = $1, updated_at = NOW() WHERE user_id = $2;
+
+-- Update specific notification type preferences
+-- UPDATE user_settings
+-- SET notify_likes = $1, notify_follows = $2, notify_comments = $3, updated_at = NOW()
+-- WHERE user_id = $4;
+
+-- Ensure user has default settings (create if not exists)
+-- INSERT INTO user_settings (id, user_id)
+-- SELECT gen_random_uuid(), $1
+-- WHERE NOT EXISTS (SELECT 1 FROM user_settings WHERE user_id = $1);
+
+-- =====================================================
+-- Notifications Table
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    type TEXT NOT NULL, -- 'like', 'follow', 'comment', 'mention', 'message', etc.
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+
+-- =====================================================
+-- Notifications queries
+-- =====================================================
+
+-- Get notifications for a user
+-- SELECT * FROM notifications
+-- WHERE user_id = $1
+-- ORDER BY created_at DESC
+-- LIMIT $2;
+
+-- Get unread count
+-- SELECT COUNT(*) as count FROM notifications WHERE user_id = $1 AND is_read = false;
+
+-- Mark notification as read
+-- UPDATE notifications SET is_read = true WHERE id = $1;
+
+-- Mark all notifications as read for a user
+-- UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false;
+
+-- Create a notification
+-- INSERT INTO notifications (id, user_id, type, title, message, link, is_read, created_at)
+-- VALUES ($1, $2, $3, $4, $5, $6, false, $7);
