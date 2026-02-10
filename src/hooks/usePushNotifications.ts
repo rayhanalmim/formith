@@ -31,7 +31,6 @@ export function usePushNotifications() {
       scope: '/',
     });
 
-    await navigator.serviceWorker.ready;
     return registration;
   };
 
@@ -121,11 +120,28 @@ export function usePushNotifications() {
       if (!user) throw new Error('User not authenticated');
 
       // Get current subscription
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      if ('serviceWorker' in navigator) {
+        let registration: ServiceWorkerRegistration | null = null;
 
-      if (subscription) {
-        await subscription.unsubscribe();
+        try {
+          // Prefer an existing registration if one is available
+          registration = await navigator.serviceWorker.getRegistration();
+
+          // If there is no existing registration, try registering one
+          if (!registration) {
+            registration = await registerServiceWorker();
+          }
+        } catch (error) {
+          console.warn('Service worker not available during unsubscribe:', error);
+        }
+
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+
+          if (subscription) {
+            await subscription.unsubscribe();
+          }
+        }
       }
 
       // Remove from Node.js backend
